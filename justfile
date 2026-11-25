@@ -1,6 +1,7 @@
 prefix := "/usr/local"
 bindir := prefix / "bin"
 appdir := prefix / "share/applications"
+iconsdir := prefix / "share/icons/hicolor"
 
 default: build
 
@@ -13,10 +14,14 @@ install:
     install -Dm0755 target/release/cosmic-appgrid-applet {{bindir}}/cosmic-appgrid-applet
     install -Dm0644 data/io.github.broly1.CosmicAppGrid.desktop {{appdir}}/io.github.broly1.CosmicAppGrid.desktop
     install -Dm0644 data/io.github.broly1.CosmicAppGridApplet.desktop {{appdir}}/io.github.broly1.CosmicAppGridApplet.desktop
+    install -Dm0644 data/icons/io.github.broly1.CosmicAppGrid.svg {{iconsdir}}/scalable/apps/io.github.broly1.CosmicAppGrid.svg
+    install -Dm0644 data/icons/io.github.broly1.CosmicAppGrid-symbolic.svg {{iconsdir}}/symbolic/apps/io.github.broly1.CosmicAppGrid-symbolic.svg
+    -gtk-update-icon-cache -qtf {{iconsdir}}
 
 uninstall:
     rm -f {{bindir}}/cosmic-appgrid {{bindir}}/cosmic-appgrid-applet
     rm -f {{appdir}}/io.github.broly1.CosmicAppGrid.desktop {{appdir}}/io.github.broly1.CosmicAppGridApplet.desktop
+    rm -f {{iconsdir}}/scalable/apps/io.github.broly1.CosmicAppGrid.svg {{iconsdir}}/symbolic/apps/io.github.broly1.CosmicAppGrid-symbolic.svg
 
 # copy the source to the dev VM, build and install it there
 vm host="broly@192.168.122.197":

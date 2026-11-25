@@ -28,6 +28,8 @@ pub struct AppGridConfig {
     /// Rows visible at once (the rest scrolls).
     pub rows: u16,
     pub icon_size: u16,
+    /// Use the monochrome (theme-tinted) panel icon instead of the colored one.
+    pub symbolic_icon: bool,
     /// Desktop-entry IDs of recently launched apps, most recent first.
     pub recent: Vec<String>,
 }
@@ -41,6 +43,7 @@ impl Default for AppGridConfig {
             columns: 5,
             rows: 4,
             icon_size: 52,
+            symbolic_icon: false,
             recent: Vec::new(),
         }
     }
@@ -87,6 +90,16 @@ impl AppGridConfig {
             }
         }
         self.recent = recent;
+    }
+
+    pub fn toggle_symbolic_icon(&mut self, helper: Option<&cosmic_config::Config>) {
+        let v = !self.symbolic_icon;
+        if let Some(h) = helper {
+            if let Err(e) = self.set_symbolic_icon(h, v) {
+                log::error!("failed to save icon style: {e:?}");
+            }
+        }
+        self.symbolic_icon = v;
     }
 
     pub fn save_position(&mut self, helper: Option<&cosmic_config::Config>, position: Position) {

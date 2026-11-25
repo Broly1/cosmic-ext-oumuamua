@@ -6,6 +6,21 @@ pub mod apps;
 pub mod config;
 pub mod grid;
 
+/// Colored launcher icon (porthole, planet, rocket).
+pub const ICON_COLOR_SVG: &[u8] = include_bytes!("../data/icons/io.github.broly1.CosmicAppGrid.svg");
+/// Monochrome variant, tinted by the theme like other panel icons.
+pub const ICON_SYMBOLIC_SVG: &[u8] = include_bytes!("../data/icons/io.github.broly1.CosmicAppGrid-symbolic.svg");
+
+pub fn launcher_icon(symbolic: bool) -> cosmic::widget::icon::Handle {
+    if symbolic {
+        let mut h = cosmic::widget::icon::from_svg_bytes(ICON_SYMBOLIC_SVG);
+        h.symbolic = true;
+        h
+    } else {
+        cosmic::widget::icon::from_svg_bytes(ICON_COLOR_SVG)
+    }
+}
+
 /// Corner radius of the glass panel, the same one COSMIC uses for system
 /// layer surfaces (App Library etc.). Used both for drawing the panel and for
 /// the compositor's blur/clip shape, so the blur never shows past the corners.

@@ -198,6 +198,10 @@ impl cosmic::Application for AppGrid {
                     return request_token(Some(Self::APP_ID.to_string()), Some(SurfaceId::RESERVED))
                         .map(move |token| cosmic::Action::App(Message::Launch(app.clone(), token)));
                 }
+                Some(grid::Event::ToggleIcon) => {
+                    self.config.toggle_symbolic_icon(self.helper.as_ref());
+                    self.grid.apply_config(&self.config);
+                }
                 Some(grid::Event::ClearRecent) => {
                     self.config.clear_recent(self.helper.as_ref());
                     self.grid.apply_config(&self.config);

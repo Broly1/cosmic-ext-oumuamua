@@ -3,13 +3,14 @@
 A frosted-glass application grid launcher for the [COSMIC](https://system76.com/cosmic) desktop, written in Rust with [libcosmic](https://github.com/pop-os/libcosmic). It's inspired by [Plasma 6 AppGrid](https://github.com/xarbit/plasma6-applet-appgrid).
 
 - **Always centered.** By default the grid opens in the exact middle of the screen, wherever the panel or dock is.
-- **Or attached to the panel.** One click on the move button turns it into a popup attached to its panel button, like the Windows 11 Start menu. Click it again to go back.
+- **Or attached to the panel.** The ⋯ menu turns it into a popup attached to its panel button, like the Windows 11 Start menu, and back again.
+- **Launchpad-style layout.** A search field, category chips (Productivity & Finance, Utilities, Social, Creativity, Entertainment, Other), a row of recently used apps, and a scrolling grid of all apps.
 - **Glass that follows your desktop settings.** There is no custom blur code. The grid uses COSMIC's own Frosted glass settings (*Settings → Desktop → Appearance → Frosted glass*):
   - The centered grid follows the **System interface** toggle.
   - The panel popup follows the **Applets** toggle.
   - Both use your blur strength and glass opacity, and update live when you change them.
-- **Fast keyboard use.** Start typing to search. The arrow keys and Tab move the selection, Enter launches, Esc closes, and PgUp/PgDn change page. The mouse wheel also changes page.
-- **Favorites.** Right-click an app to pin it to the front of the grid (★).
+- **Fast keyboard use.** Start typing to search. The arrow keys and Tab move the selection, Enter launches, Esc closes, and PgUp/PgDn jump a screen.
+- **Its own icon.** A porthole with a planet and a rocket, inspired by the Pop!_OS installer artwork. It comes in color for a Windows-style bottom panel or dock, or in monochrome to match the other top-panel icons (switch it in the ⋯ menu).
 
 ## Components
 
@@ -23,10 +24,13 @@ Settings are stored with cosmic-config at `~/.config/cosmic/io.github.broly1.Cos
 | Key | Default | Meaning |
 |---|---|---|
 | `position` | `Centered` | `Centered` or `Panel` |
-| `columns`, `rows` | `7`, `4` | Grid size of one page when centered |
-| `panel_columns`, `panel_rows` | `6`, `4` | Grid size of one page in the panel popup |
-| `icon_size` | `64` | Icon size in pixels (32–128) |
-| `favorites` | `[]` | Desktop entry IDs pinned first |
+| `columns` | `5` | Icons per row |
+| `rows` | `4` | Rows visible at once (the rest scrolls) |
+| `icon_size` | `52` | Icon size in pixels (32–128) |
+| `symbolic_icon` | `false` | Use the monochrome panel icon |
+| `recent` | `[]` | Recently launched desktop entry IDs, newest first |
+
+Categories come from each app's freedesktop.org `Categories=` key. Office and finance apps go to Productivity & Finance, graphics and development tools to Creativity, browsers, mail and chat to Social, games and media players to Entertainment, and system tools to Utilities. Everything else goes to Other.
 
 ## Build and install
 

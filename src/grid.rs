@@ -48,6 +48,7 @@ pub enum Msg {
     CloseMenu,
     TogglePosition,
     ClearRecent,
+    ToggleIcon,
 }
 
 /// What the owner of the grid needs to do after an update.
@@ -55,6 +56,7 @@ pub enum Event {
     Launch(Arc<App>),
     TogglePosition,
     ClearRecent,
+    ToggleIcon,
     Task(Task<Msg>),
 }
 
@@ -77,6 +79,7 @@ pub struct Grid {
     /// Which mode this grid is shown in (decides the menu wording).
     mode: Position,
     menu_open: bool,
+    symbolic_icon: bool,
     scroll_y: f32,
 }
 
@@ -96,6 +99,7 @@ impl Grid {
             icon_size: 52,
             mode,
             menu_open: false,
+            symbolic_icon: false,
             scroll_y: 0.0,
         }
     }
@@ -104,6 +108,7 @@ impl Grid {
         self.columns = config.columns.clamp(3, 10) as usize;
         self.visible_rows = config.rows.clamp(2, 8) as usize;
         self.icon_size = config.icon_size.clamp(32, 128);
+        self.symbolic_icon = config.symbolic_icon;
         if self.recent_ids != config.recent {
             self.recent_ids = config.recent.clone();
             self.refresh_recent();
@@ -280,6 +285,10 @@ impl Grid {
                 self.menu_open = false;
                 return Some(Event::ClearRecent);
             }
+            Msg::ToggleIcon => {
+                self.menu_open = false;
+                return Some(Event::ToggleIcon);
+            }
         }
         None
     }
@@ -297,6 +306,7 @@ impl Grid {
                 Position::Centered => "Attach to panel",
                 Position::Panel => "Center on screen",
             };
+            let icon_label = if self.symbolic_icon { "Colored panel icon" } else { "Monochrome panel icon" };
             let item = |label: &'static str, msg: Msg| {
                 button::custom(text(label).size(13))
                     .class(theme::Button::MenuItem)
@@ -305,7 +315,11 @@ impl Grid {
                     .on_press(msg)
             };
             menu = menu.popup(
-                container(column![item(move_label, Msg::TogglePosition), item("Clear recent apps", Msg::ClearRecent)])
+                container(column![
+                    item(move_label, Msg::TogglePosition),
+                    item(icon_label, Msg::ToggleIcon),
+                    item("Clear recent apps", Msg::ClearRecent),
+                ])
                     .padding(4)
                     .class(theme::Container::Dropdown),
             );

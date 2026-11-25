@@ -22,8 +22,6 @@ use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{container, text_input};
 use cosmic::Element;
 
-const ICON: &str = "view-app-grid-symbolic";
-
 /// Run `cosmic-appgrid` (toggles the centered grid) and reap it in the
 /// background so no zombie processes pile up in the panel applet.
 fn toggle_centered_grid() {
@@ -156,6 +154,10 @@ impl cosmic::Application for Applet {
             Message::Close => return self.close_popup(),
             Message::Grid(msg) => match self.grid.update(msg) {
                 Some(grid::Event::Launch(app)) => return self.launch(app),
+                Some(grid::Event::ToggleIcon) => {
+                    self.config.toggle_symbolic_icon(self.helper.as_ref());
+                    self.grid.apply_config(&self.config);
+                }
                 Some(grid::Event::ClearRecent) => {
                     self.config.clear_recent(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
@@ -185,7 +187,7 @@ impl cosmic::Application for Applet {
         let btn = self
             .core
             .applet
-            .icon_button(ICON)
+            .icon_button_from_handle(appgrid::launcher_icon(self.config.symbolic_icon))
             .on_press_with_rectangle(|offset, bounds| {
                 Message::Pressed(Rectangle {
                     x: bounds.x - offset.x,
