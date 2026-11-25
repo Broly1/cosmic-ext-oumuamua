@@ -58,6 +58,8 @@ pub enum Msg {
     TogglePosition,
     ClearRecent,
     ToggleIcon,
+    ShowAbout(bool),
+    OpenUrl(&'static str),
 }
 
 /// What the owner of the grid needs to do after an update.
@@ -66,6 +68,7 @@ pub enum Event {
     TogglePosition,
     ClearRecent,
     ToggleIcon,
+    OpenUrl(&'static str),
     Task(Task<Msg>),
 }
 
@@ -88,6 +91,8 @@ pub struct Grid {
     /// Which mode this grid is shown in (decides the menu wording).
     mode: Position,
     menu_open: bool,
+    /// Showing the About page instead of the apps.
+    about: bool,
     symbolic_icon: bool,
     scroll_y: f32,
 }
@@ -109,6 +114,7 @@ impl Grid {
             icon_size: 52,
             mode,
             menu_open: false,
+            about: false,
             symbolic_icon: false,
             scroll_y: 0.0,
         }
@@ -135,6 +141,7 @@ impl Grid {
         self.query.clear();
         self.category = None;
         self.menu_open = false;
+        self.about = false;
         self.scroll_y = 0.0;
         self.refresh_recent();
         self.refilter();
@@ -311,6 +318,11 @@ impl Grid {
                 self.menu_open = false;
                 return Some(Event::ToggleIcon);
             }
+            Msg::ShowAbout(show) => {
+                self.menu_open = false;
+                self.about = show;
+            }
+            Msg::OpenUrl(url) => return Some(Event::OpenUrl(url)),
         }
         None
     }
@@ -345,6 +357,8 @@ impl Grid {
                     item(move_label, Msg::TogglePosition),
                     item(icon_label, Msg::ToggleIcon),
                     item(crate::fl!("clear-recent"), Msg::ClearRecent),
+                    divider::horizontal::light(),
+                    item(crate::fl!("about"), Msg::ShowAbout(true)),
                 ])
                 .padding(4)
                 .class(theme::Container::Dropdown),
@@ -388,7 +402,54 @@ impl Grid {
         chips.into()
     }
 
+    /// About page: shown in place of the chips and apps, at the same size.
+    fn about_view(&self) -> Element<'_, Msg> {
+        let back = button::icon(icon::from_name("go-previous-symbolic").size(16))
+            .padding(8)
+            .on_press(Msg::ShowAbout(false));
+        let header = row![back, text(crate::fl!("about")).size(16)]
+            .spacing(8)
+            .align_y(Alignment::Center)
+            .height(Length::Fixed(HEADER_H));
+
+        let small = |s: String| text(s).size(12).align_x(Alignment::Center).width(Length::Fill);
+        let links = row![
+            button::suggested(crate::fl!("source-code"))
+                .on_press(Msg::OpenUrl(crate::REPOSITORY)),
+            button::standard(crate::fl!("report-issue"))
+                .on_press(Msg::OpenUrl(crate::ISSUES)),
+        ]
+        .spacing(8);
+        let content = column![
+            icon::icon(crate::launcher_icon(false))
+                .width(Length::Fixed(72.0))
+                .height(Length::Fixed(72.0)),
+            text("Oumuamua").size(22),
+            small(format!("{} {}", crate::fl!("version"), crate::VERSION)),
+            small(crate::fl!("app-comment")),
+            links,
+            small(crate::fl!("license")),
+            small(crate::fl!("copyright")),
+            small(crate::fl!("trademark-notice")),
+        ]
+        .spacing(10)
+        .align_x(Alignment::Center)
+        .width(Length::Fill);
+        let body = cosmic::widget::scrollable(container(content).center_x(Length::Fill))
+            .width(Length::Fill)
+            .height(Length::Fixed(CHIPS_H + GAP + self.viewport_h()));
+
+        column![header, body]
+            .spacing(GAP)
+            .padding(OUTER_PAD)
+            .width(Length::Fill)
+            .into()
+    }
+
     pub fn view(&self) -> Element<'_, Msg> {
+        if self.about {
+            return self.about_view();
+        }
         let (cw, ch) = self.cell_size();
         let header = self.header();
         let chips = self.chips();

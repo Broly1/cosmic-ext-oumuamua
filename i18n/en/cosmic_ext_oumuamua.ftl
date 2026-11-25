@@ -19,6 +19,15 @@ center-on-screen = Center on screen
 monochrome-icon = Monochrome panel icon
 colored-icon = Colored panel icon
 clear-recent = Clear recent apps
+about = About Oumuamua
+
+# About page
+version = Version
+source-code = Source code on GitHub
+report-issue = Report an issue
+license = License: GPL-3.0-only
+copyright = Copyright © 2026 Broly1
+trademark-notice = A community project, not affiliated with or endorsed by System76. COSMIC™ is a trademark of System76, Inc.
 
 # Categories
 category-productivity = Productivity & Finance

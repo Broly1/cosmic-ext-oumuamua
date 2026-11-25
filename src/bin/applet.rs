@@ -217,6 +217,10 @@ impl cosmic::Application for Applet {
                 Some(grid::Event::Task(task)) => {
                     return task.map(|m| cosmic::Action::App(Message::Grid(m)));
                 }
+                Some(grid::Event::OpenUrl(url)) => {
+                    oumuamua::open_url(url);
+                    return self.close_popup();
+                }
                 Some(grid::Event::TogglePosition) => {
                     self.config
                         .save_position(self.helper.as_ref(), Position::Centered);

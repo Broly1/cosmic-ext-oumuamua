@@ -268,6 +268,10 @@ impl cosmic::Application for Oumuamua {
                 Some(grid::Event::Task(task)) => {
                     return task.map(|m| cosmic::Action::App(Message::Grid(m)));
                 }
+                Some(grid::Event::OpenUrl(url)) => {
+                    oumuamua::open_url(url);
+                    return self.hide();
+                }
                 Some(grid::Event::TogglePosition) => {
                     // the panel applet watches this setting and takes over
                     self.config

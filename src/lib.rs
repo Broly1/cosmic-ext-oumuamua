@@ -7,6 +7,21 @@ pub mod config;
 pub mod grid;
 pub mod i18n;
 
+pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
+pub const ISSUES: &str = concat!(env!("CARGO_PKG_REPOSITORY"), "/issues");
+
+/// Open a web link in the user's browser.
+pub fn open_url(url: &str) {
+    match std::process::Command::new("xdg-open").arg(url).spawn() {
+        // reap it in the background so it doesn't linger as a zombie
+        Ok(mut child) => {
+            std::thread::spawn(move || child.wait());
+        }
+        Err(e) => log::error!("failed to open {url}: {e}"),
+    }
+}
+
 /// Colored launcher icon (porthole, planet, rocket).
 pub const ICON_COLOR_SVG: &[u8] =
     include_bytes!("../resources/icons/hicolor/scalable/apps/io.github.broly1.Oumuamua.svg");

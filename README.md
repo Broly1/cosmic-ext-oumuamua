@@ -18,6 +18,7 @@ This is a community project. It is not affiliated with or endorsed by System76.
   - The panel popup follows the **Applets** toggle.
   - Both use your blur strength and glass opacity, and update live when you change them.
 - **Fast keyboard use.** Start typing to search. The arrow keys and Tab move the selection, Enter launches, Esc closes, and PgUp/PgDn jump a screen.
+- **Translated** into Brazilian Portuguese, Spanish, French and Esperanto, with an About page (⋯ → *About Oumuamua*) that links to this repository.
 - **Its own icon.** A porthole with a planet and a rocket, inspired by the Pop!_OS installer artwork. It comes in color for a Windows-style bottom panel or dock, or in monochrome to match the other top-panel icons (switch it in the ⋯ menu).
 
 ## Components
@@ -75,7 +76,26 @@ Pressing Super again closes the grid. COSMIC's launcher stays available on Super
 
 ## Translators
 
-[Fluent][fluent] is used for localization of the software. Fluent's translation files are found in the [i18n directory](./i18n). New translations may copy the [English (en) localization](./i18n/en) of the project, rename `en` to the desired [ISO 639-1 language code][iso-codes], and then translations can be provided for each [message identifier][fluent-guide]. If no translation is necessary, the message may be omitted.
+Oumuamua uses [Fluent][fluent] for translations, the same way COSMIC's own apps and applets do. Each language has one file, `i18n/<language>/cosmic_ext_oumuamua.ftl`. The same file also translates the app's name and description in the panel's applet list and in app stores.
+
+| Language | Folder |
+|---|---|
+| English (source) | [`i18n/en`](./i18n/en) |
+| Brazilian Portuguese | [`i18n/pt-BR`](./i18n/pt-BR) |
+| Spanish | [`i18n/es`](./i18n/es) |
+| French | [`i18n/fr`](./i18n/fr) |
+| Esperanto | [`i18n/eo`](./i18n/eo) |
+
+To add a language:
+
+1. Copy the `i18n/en` folder and rename it to your language code, for example `de`, `it` or `pt` (use a region only when it matters, as in `pt-BR` or `zh-Hant`). See the [ISO 639-1 codes][iso-codes].
+2. Translate the text after each `=`. Keep the IDs before the `=` unchanged. See the [Fluent guide][fluent-guide] for the syntax.
+3. In the `*-keywords` lines, keep the `;` between words and at the end.
+4. Leave a line out if it doesn't need translating; the English text is used for it.
+5. Check your work by running `just run`, or build and install with `just` and `sudo just install`. Oumuamua uses your desktop's language (*Settings → Time & language → Region & language*).
+6. Open a pull request.
+
+To fix an existing translation, edit its file and open a pull request.
 
 ## Packaging
 
