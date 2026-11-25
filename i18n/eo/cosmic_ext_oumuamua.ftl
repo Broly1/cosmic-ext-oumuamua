@@ -27,7 +27,15 @@ source-code = Fontkodo ĉe GitHub
 report-issue = Raporti problemon
 license = Permesilo: GPL-3.0-only
 copyright = Kopirajto © 2026 Broly1
-trademark-notice = Komunuma projekto, ne aliĝinta al System76 nek aprobita de ĝi. COSMIC™ estas varmarko de System76, Inc.
+community-notice = Komunuma projekto, ne aliĝinta al System76 nek aprobita de ĝi.
+trademark-notice = COSMIC™ estas varmarko de System76, Inc.
+
+# ⋯ menu: session and power
+lock = Ŝlosi
+suspend = Dormigi
+log-out = Elsaluti
+restart = Restartigi
+shutdown = Malŝalti
 
 # Categories
 category-productivity = Produktiveco kaj financoj

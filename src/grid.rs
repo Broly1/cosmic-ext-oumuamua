@@ -35,12 +35,22 @@ const CELL_PAD_H: f32 = 44.0;
 const SPACING: f32 = 4.0;
 const OUTER_PAD: f32 = 16.0;
 const HEADER_H: f32 = 40.0;
-const CHIPS_H: f32 = 36.0;
+const CHIPS_H: f32 = 28.0;
+const CHIP_SPACING: f32 = 6.0;
+/// Horizontal padding inside a category chip, each side.
+const CHIP_PAD: f32 = 12.0;
+/// Text size of the category chips.
+const CHIP_TEXT: f32 = 12.0;
 const GAP: f32 = 8.0;
 /// Height of the divider between the recent row and all apps.
 const DIVIDER_H: f32 = 17.0;
 /// Room on the right of the grid for the scrollbar.
 const GUTTER: f32 = 14.0;
+/// ⋯ menu text size, icon size, gap between them, and item padding.
+const MENU_TEXT: f32 = 13.0;
+const MENU_ICON: f32 = 16.0;
+const MENU_ICON_GAP: f32 = 10.0;
+const MENU_ITEM_PAD: f32 = 12.0;
 
 #[derive(Debug, Clone)]
 pub enum Msg {
@@ -60,6 +70,65 @@ pub enum Msg {
     ToggleIcon,
     ShowAbout(bool),
     OpenUrl(&'static str),
+    Power(Power),
+}
+
+/// Session and power actions in the ⋯ menu, like the KDE launcher's.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Power {
+    Lock,
+    Suspend,
+    LogOut,
+    Restart,
+    Shutdown,
+}
+
+impl Power {
+    pub const ALL: [Power; 5] = [
+        Power::Lock,
+        Power::Suspend,
+        Power::LogOut,
+        Power::Restart,
+        Power::Shutdown,
+    ];
+
+    fn icon(self) -> &'static str {
+        match self {
+            Power::Lock => "system-lock-screen-symbolic",
+            Power::Suspend => "system-suspend-symbolic",
+            Power::LogOut => "system-log-out-symbolic",
+            Power::Restart => "system-reboot-symbolic",
+            Power::Shutdown => "system-shutdown-symbolic",
+        }
+    }
+
+    fn label(self) -> String {
+        match self {
+            Power::Lock => crate::fl!("lock"),
+            Power::Suspend => crate::fl!("suspend"),
+            Power::LogOut => crate::fl!("log-out"),
+            Power::Restart => crate::fl!("restart"),
+            Power::Shutdown => crate::fl!("shutdown"),
+        }
+    }
+
+    /// Run the action. Log out, restart and shut down open COSMIC's own
+    /// confirmation dialog (with its countdown), like the Power applet.
+    pub fn run(self) {
+        let (cmd, args): (&str, &[&str]) = match self {
+            Power::Lock => ("loginctl", &["lock-session"]),
+            Power::Suspend => ("systemctl", &["suspend"]),
+            Power::LogOut => ("cosmic-osd", &["log-out"]),
+            Power::Restart => ("cosmic-osd", &["restart"]),
+            Power::Shutdown => ("cosmic-osd", &["shutdown"]),
+        };
+        match std::process::Command::new(cmd).args(args).spawn() {
+            Ok(mut child) => {
+                std::thread::spawn(move || child.wait());
+            }
+            Err(e) => log::error!("failed to run {cmd}: {e}"),
+        }
+    }
 }
 
 /// What the owner of the grid needs to do after an update.
@@ -69,6 +138,7 @@ pub enum Event {
     ClearRecent,
     ToggleIcon,
     OpenUrl(&'static str),
+    Power(Power),
     Task(Task<Msg>),
 }
 
@@ -90,6 +160,8 @@ pub struct Grid {
     icon_size: u16,
     /// Which mode this grid is shown in (decides the menu wording).
     mode: Position,
+    /// Measured width of the chips row (all categories on one line).
+    chips_w: f32,
     menu_open: bool,
     /// Showing the About page instead of the apps.
     about: bool,
@@ -113,6 +185,7 @@ impl Grid {
             visible_rows: 4,
             icon_size: 52,
             mode,
+            chips_w: 0.0,
             menu_open: false,
             about: false,
             symbolic_icon: false,
@@ -138,6 +211,7 @@ impl Grid {
             .into_iter()
             .filter(|c| self.apps.iter().any(|a| a.category == *c))
             .collect();
+        self.chips_w = self.measure_chips();
         self.query.clear();
         self.category = None;
         self.menu_open = false;
@@ -159,15 +233,39 @@ impl Grid {
     /// Logical size of the grid panel, used to size/center the surface.
     #[must_use]
     pub fn panel_size(&self) -> (f32, f32) {
-        let (cw, _) = self.cell_size();
-        let w = 2.0 * OUTER_PAD + self.columns as f32 * (cw + SPACING) - SPACING + GUTTER;
+        // the grid already widens its cells to fit all category chips
+        let w = 2.0 * OUTER_PAD + self.grid_width();
         let h = 2.0 * OUTER_PAD + HEADER_H + GAP + CHIPS_H + GAP + self.viewport_h();
         (w, h)
     }
 
+    /// Width of the app grid (all columns plus the scrollbar gutter).
+    fn grid_width(&self) -> f32 {
+        let (cw, _) = self.cell_size();
+        self.columns as f32 * (cw + SPACING) - SPACING + GUTTER
+    }
+
+    /// Width of the chips row with every category on one line, measured
+    /// with the real font so the panel grows only as much as a language
+    /// needs (and not at all when the chips already fit).
+    fn measure_chips(&self) -> f32 {
+        let chips: f32 = self
+            .categories
+            .iter()
+            // +2: rounding room so the last chip never clips
+            .map(|c| text_width(&c.label(), CHIP_TEXT) + 2.0 * CHIP_PAD + 2.0)
+            .sum();
+        chips + CHIP_SPACING * self.categories.len().saturating_sub(1) as f32
+    }
+
+    /// Size of one app cell. Cells get wider when a language's category
+    /// names need more room than the grid, so the grid always fills the
+    /// panel edge to edge (no empty strips beside it).
     fn cell_size(&self) -> (f32, f32) {
         let i = f32::from(self.icon_size);
-        (i + CELL_PAD_W, i + CELL_PAD_H)
+        let n = self.columns as f32;
+        let fit_chips = (self.chips_w - GUTTER + SPACING) / n - SPACING;
+        ((i + CELL_PAD_W).max(fit_chips.ceil()), i + CELL_PAD_H)
     }
 
     fn viewport_h(&self) -> f32 {
@@ -323,6 +421,7 @@ impl Grid {
                 self.about = show;
             }
             Msg::OpenUrl(url) => return Some(Event::OpenUrl(url)),
+            Msg::Power(p) => return Some(Event::Power(p)),
         }
         None
     }
@@ -336,32 +435,69 @@ impl Grid {
             .position(widget::popover::Position::Bottom)
             .on_close(Msg::CloseMenu);
         if self.menu_open {
-            let move_label = match self.mode {
-                Position::Centered => crate::fl!("attach-to-panel"),
-                Position::Panel => crate::fl!("center-on-screen"),
+            let (move_icon, move_label) = match self.mode {
+                Position::Centered => ("pin-symbolic", crate::fl!("attach-to-panel")),
+                Position::Panel => ("zoom-fit-best-symbolic", crate::fl!("center-on-screen")),
             };
             let icon_label = if self.symbolic_icon {
                 crate::fl!("colored-icon")
             } else {
                 crate::fl!("monochrome-icon")
             };
-            let item = |label: String, msg: Msg| {
-                button::custom(text(label).size(13))
+            // every entry has an icon so all labels line up
+            let mut entries: Vec<(&'static str, String, Msg)> = vec![
+                (move_icon, move_label, Msg::TogglePosition),
+                ("image-x-generic-symbolic", icon_label, Msg::ToggleIcon),
+                (
+                    "edit-clear-symbolic",
+                    crate::fl!("clear-recent"),
+                    Msg::ClearRecent,
+                ),
+            ];
+            entries.extend(Power::ALL.map(|p| (p.icon(), p.label(), Msg::Power(p))));
+            entries.push((
+                "help-about-symbolic",
+                crate::fl!("about"),
+                Msg::ShowAbout(true),
+            ));
+
+            // as wide as the longest label in the current language, so
+            // nothing wraps; the dividers would otherwise stretch the menu
+            // across the whole full-screen surface
+            let longest = entries
+                .iter()
+                .map(|(_, label, _)| text_width(label, MENU_TEXT))
+                .fold(0.0, f32::max);
+            let width =
+                longest + MENU_ICON + MENU_ICON_GAP + 2.0 * MENU_ITEM_PAD + 2.0 * 4.0 + 12.0;
+
+            let mut items: Vec<Element<'_, Msg>> = Vec::with_capacity(entries.len() + 2);
+            for (i, (icon_name, label, msg)) in entries.into_iter().enumerate() {
+                // dividers before the power actions and before About
+                if i == 3 || i == 3 + Power::ALL.len() {
+                    items.push(divider::horizontal::light().into());
+                }
+                items.push(
+                    button::custom(
+                        row![
+                            icon::from_name(icon_name).size(16).icon(),
+                            text(label).size(MENU_TEXT).wrapping(text::Wrapping::None),
+                        ]
+                        .spacing(MENU_ICON_GAP)
+                        .align_y(Alignment::Center),
+                    )
                     .class(theme::Button::MenuItem)
-                    .padding([6, 12])
-                    .width(Length::Fixed(180.0))
+                    .padding([6.0, MENU_ITEM_PAD])
+                    .width(Length::Fill)
                     .on_press(msg)
-            };
+                    .into(),
+                );
+            }
             menu = menu.popup(
-                container(column![
-                    item(move_label, Msg::TogglePosition),
-                    item(icon_label, Msg::ToggleIcon),
-                    item(crate::fl!("clear-recent"), Msg::ClearRecent),
-                    divider::horizontal::light(),
-                    item(crate::fl!("about"), Msg::ShowAbout(true)),
-                ])
-                .padding(4)
-                .class(theme::Container::Dropdown),
+                container(column(items))
+                    .width(Length::Fixed(width.ceil()))
+                    .padding(4)
+                    .class(theme::Container::Dropdown),
             );
         }
         let header = row![
@@ -385,21 +521,22 @@ impl Grid {
             .categories
             .iter()
             .map(|&c| {
-                button::custom(text(c.label()).size(12))
+                button::custom(text(c.label()).size(CHIP_TEXT))
                     .class(if self.category == Some(c) {
                         theme::Button::Suggested
                     } else {
                         theme::Button::Standard
                     })
-                    .padding([4, 12])
+                    .padding([4.0, CHIP_PAD])
                     .on_press(Msg::Category(c))
                     .into()
             })
             .collect();
-        let chips =
-            cosmic::widget::scrollable::horizontal(row(chips).spacing(6).padding([0, 0, 8, 0]))
-                .height(Length::Fixed(CHIPS_H));
-        chips.into()
+        // no scrolling: the panel is sized so the chips always fit
+        container(row(chips).spacing(CHIP_SPACING))
+            .center_x(Length::Fill)
+            .height(Length::Fixed(CHIPS_H))
+            .into()
     }
 
     /// About page: shown in place of the chips and apps, at the same size.
@@ -412,12 +549,15 @@ impl Grid {
             .align_y(Alignment::Center)
             .height(Length::Fixed(HEADER_H));
 
-        let small = |s: String| text(s).size(12).align_x(Alignment::Center).width(Length::Fill);
+        let small = |s: String| {
+            text(s)
+                .size(12)
+                .align_x(Alignment::Center)
+                .width(Length::Fill)
+        };
         let links = row![
-            button::suggested(crate::fl!("source-code"))
-                .on_press(Msg::OpenUrl(crate::REPOSITORY)),
-            button::standard(crate::fl!("report-issue"))
-                .on_press(Msg::OpenUrl(crate::ISSUES)),
+            button::suggested(crate::fl!("source-code")).on_press(Msg::OpenUrl(crate::REPOSITORY)),
+            button::standard(crate::fl!("report-issue")).on_press(Msg::OpenUrl(crate::ISSUES)),
         ]
         .spacing(8);
         let content = column![
@@ -430,7 +570,11 @@ impl Grid {
             links,
             small(crate::fl!("license")),
             small(crate::fl!("copyright")),
-            small(crate::fl!("trademark-notice")),
+            column![
+                small(crate::fl!("community-notice")),
+                small(crate::fl!("trademark-notice")),
+            ]
+            .spacing(2),
         ]
         .spacing(10)
         .align_x(Alignment::Center)
@@ -484,16 +628,16 @@ impl Grid {
                 .center_y(Length::Fixed(self.viewport_h()))
                 .into()
         } else {
-            cosmic::widget::scrollable(
+            let grid = cosmic::widget::scrollable(
                 column(content)
                     .spacing(SPACING)
                     .padding([0.0, GUTTER, 0.0, 0.0]),
             )
             .id(SCROLL_ID.clone())
             .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
-            .width(Length::Fill)
-            .height(Length::Fixed(self.viewport_h()))
-            .into()
+            .width(Length::Fixed(self.grid_width()))
+            .height(Length::Fixed(self.viewport_h()));
+            grid.into()
         };
 
         column![header, chips, body]
@@ -550,4 +694,26 @@ impl Grid {
             btn.into()
         }
     }
+}
+
+/// Width of one line of `s` in the theme's font at `size` logical pixels.
+fn text_width(s: &str, size: f32) -> f32 {
+    use cosmic::iced::Pixels;
+    use cosmic::iced::advanced::graphics::text::Paragraph;
+    use cosmic::iced::advanced::text::{
+        self as core_text, Ellipsize, LineHeight, Paragraph as _, Shaping, Wrapping,
+    };
+    let p = Paragraph::with_text(core_text::Text {
+        content: s,
+        bounds: cosmic::iced::Size::INFINITE,
+        size: Pixels(size),
+        line_height: LineHeight::default(),
+        font: cosmic::font::default(),
+        align_x: core_text::Alignment::Default,
+        align_y: cosmic::iced::alignment::Vertical::Top,
+        shaping: Shaping::Advanced,
+        wrapping: Wrapping::None,
+        ellipsize: Ellipsize::None,
+    });
+    p.min_bounds().width
 }

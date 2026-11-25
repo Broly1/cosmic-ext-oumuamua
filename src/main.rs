@@ -14,8 +14,6 @@
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
-use oumuamua::config::{OumuamuaConfig, Position};
-use oumuamua::grid::{self, Grid, SEARCH_ID};
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
@@ -36,6 +34,8 @@ use cosmic::iced::{Length, Size, Subscription};
 use cosmic::surface::action::{LiveSettings, app_layer_shell};
 use cosmic::widget::{container, mouse_area, text_input};
 use cosmic::{Element, dbus_activation};
+use oumuamua::config::{OumuamuaConfig, Position};
+use oumuamua::grid::{self, Grid, SEARCH_ID};
 use serde::{Deserialize, Serialize};
 
 #[derive(Parser, Debug, Clone, Serialize, Deserialize)]
@@ -270,6 +270,10 @@ impl cosmic::Application for Oumuamua {
                 }
                 Some(grid::Event::OpenUrl(url)) => {
                     oumuamua::open_url(url);
+                    return self.hide();
+                }
+                Some(grid::Event::Power(p)) => {
+                    p.run();
                     return self.hide();
                 }
                 Some(grid::Event::TogglePosition) => {

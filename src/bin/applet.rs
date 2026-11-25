@@ -10,9 +10,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use oumuamua::apps::App;
-use oumuamua::config::{OumuamuaConfig, Position};
-use oumuamua::grid::{self, Grid, SEARCH_ID};
 use cosmic::Element;
 use cosmic::app::{Core, Task};
 use cosmic::applet::token::subscription::{
@@ -26,6 +23,9 @@ use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Limits, Rectangle, Subscription};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{container, text_input};
+use oumuamua::apps::App;
+use oumuamua::config::{OumuamuaConfig, Position};
+use oumuamua::grid::{self, Grid, SEARCH_ID};
 
 /// Run `cosmic-ext-oumuamua` (toggles the centered grid) and reap it in the
 /// background so no zombie processes pile up in the panel applet.
@@ -219,6 +219,10 @@ impl cosmic::Application for Applet {
                 }
                 Some(grid::Event::OpenUrl(url)) => {
                     oumuamua::open_url(url);
+                    return self.close_popup();
+                }
+                Some(grid::Event::Power(p)) => {
+                    p.run();
                     return self.close_popup();
                 }
                 Some(grid::Event::TogglePosition) => {

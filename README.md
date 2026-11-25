@@ -18,6 +18,8 @@ This is a community project. It is not affiliated with or endorsed by System76.
   - The panel popup follows the **Applets** toggle.
   - Both use your blur strength and glass opacity, and update live when you change them.
 - **Fast keyboard use.** Start typing to search. The arrow keys and Tab move the selection, Enter launches, Esc closes, and PgUp/PgDn jump a screen.
+- **Session and power options** in the ⋯ menu: Lock, Suspend, Log out, Restart and Shut down. Log out, Restart and Shut down ask for confirmation with COSMIC's own dialog.
+- **Fits every language.** The ⋯ menu and the category chips size themselves to the translated text, so nothing wraps, scrolls or gets cut off.
 - **Translated** into Brazilian Portuguese, Spanish, French and Esperanto, with an About page (⋯ → *About Oumuamua*) that links to this repository.
 - **Its own icon.** A porthole with a planet and a rocket, inspired by the Pop!_OS installer artwork. It comes in color for a Windows-style bottom panel or dock, or in monochrome to match the other top-panel icons (switch it in the ⋯ menu).
 

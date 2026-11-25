@@ -27,7 +27,15 @@ source-code = Código-fonte no GitHub
 report-issue = Relatar um problema
 license = Licença: GPL-3.0-only
 copyright = Copyright © 2026 Broly1
-trademark-notice = Um projeto da comunidade, sem afiliação ou endosso da System76. COSMIC™ é uma marca registrada da System76, Inc.
+community-notice = Um projeto da comunidade, sem afiliação ou endosso da System76.
+trademark-notice = COSMIC™ é uma marca registrada da System76, Inc.
+
+# ⋯ menu: session and power
+lock = Bloquear
+suspend = Suspender
+log-out = Encerrar sessão
+restart = Reiniciar
+shutdown = Desligar
 
 # Categories
 category-productivity = Produtividade e finanças
