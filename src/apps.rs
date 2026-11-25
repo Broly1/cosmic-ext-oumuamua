@@ -28,42 +28,107 @@ impl Category {
         Category::Other,
     ];
 
-    pub fn label(self) -> &'static str {
+    pub fn label(self) -> String {
         match self {
-            Category::Productivity => "Productivity & Finance",
-            Category::Utilities => "Utilities",
-            Category::Social => "Social",
-            Category::Creativity => "Creativity",
-            Category::Entertainment => "Entertainment",
-            Category::Other => "Other",
+            Category::Productivity => crate::fl!("category-productivity"),
+            Category::Utilities => crate::fl!("category-utilities"),
+            Category::Social => crate::fl!("category-social"),
+            Category::Creativity => crate::fl!("category-creativity"),
+            Category::Entertainment => crate::fl!("category-entertainment"),
+            Category::Other => crate::fl!("category-other"),
         }
     }
 
-    /// Checked in this order, so e.g. an Office;Graphics viewer counts as
-    /// Productivity and AudioVideoEditing as Creativity, not Entertainment.
+    /// Checked in this order, so e.g. an `Office;Graphics` viewer counts as
+    /// Productivity and `AudioVideoEditing` as Creativity, not Entertainment.
     fn from_freedesktop(cats: &[String]) -> Self {
         const RULES: &[(Category, &[&str])] = &[
-            (Category::Productivity, &[
-                "Office", "Finance", "Calendar", "ContactManagement", "ProjectManagement",
-                "WordProcessor", "Spreadsheet", "Presentation", "Dictionary", "Chart", "Database",
-            ]),
-            (Category::Creativity, &[
-                "Graphics", "2DGraphics", "3DGraphics", "RasterGraphics", "VectorGraphics",
-                "Photography", "Publishing", "AudioVideoEditing", "Art", "Development", "IDE",
-                "WebDevelopment", "Building", "Debugger",
-            ]),
-            (Category::Social, &[
-                "Chat", "InstantMessaging", "IRCClient", "Email", "Telephony", "VideoConference",
-                "News", "Feed", "WebBrowser", "Network",
-            ]),
-            (Category::Entertainment, &[
-                "Game", "AudioVideo", "Audio", "Video", "Player", "Music", "TV", "Recorder",
-            ]),
-            (Category::Utilities, &[
-                "System", "Settings", "Utility", "Accessibility", "FileManager", "TerminalEmulator",
-                "Monitor", "Archiving", "Compression", "FileTools", "Security", "PackageManager",
-                "HardwareSettings", "Filesystem", "Core", "TextEditor", "Calculator", "Clock",
-            ]),
+            (
+                Category::Productivity,
+                &[
+                    "Office",
+                    "Finance",
+                    "Calendar",
+                    "ContactManagement",
+                    "ProjectManagement",
+                    "WordProcessor",
+                    "Spreadsheet",
+                    "Presentation",
+                    "Dictionary",
+                    "Chart",
+                    "Database",
+                ],
+            ),
+            (
+                Category::Creativity,
+                &[
+                    "Graphics",
+                    "2DGraphics",
+                    "3DGraphics",
+                    "RasterGraphics",
+                    "VectorGraphics",
+                    "Photography",
+                    "Publishing",
+                    "AudioVideoEditing",
+                    "Art",
+                    "Development",
+                    "IDE",
+                    "WebDevelopment",
+                    "Building",
+                    "Debugger",
+                ],
+            ),
+            (
+                Category::Social,
+                &[
+                    "Chat",
+                    "InstantMessaging",
+                    "IRCClient",
+                    "Email",
+                    "Telephony",
+                    "VideoConference",
+                    "News",
+                    "Feed",
+                    "WebBrowser",
+                    "Network",
+                ],
+            ),
+            (
+                Category::Entertainment,
+                &[
+                    "Game",
+                    "AudioVideo",
+                    "Audio",
+                    "Video",
+                    "Player",
+                    "Music",
+                    "TV",
+                    "Recorder",
+                ],
+            ),
+            (
+                Category::Utilities,
+                &[
+                    "System",
+                    "Settings",
+                    "Utility",
+                    "Accessibility",
+                    "FileManager",
+                    "TerminalEmulator",
+                    "Monitor",
+                    "Archiving",
+                    "Compression",
+                    "FileTools",
+                    "Security",
+                    "PackageManager",
+                    "HardwareSettings",
+                    "Filesystem",
+                    "Core",
+                    "TextEditor",
+                    "Calculator",
+                    "Clock",
+                ],
+            ),
         ];
         for (cat, names) in RULES {
             if cats.iter().any(|c| names.contains(&c.as_str())) {
@@ -91,7 +156,13 @@ impl App {
         let category = Category::from_freedesktop(&entry.categories);
         let name_lc = entry.name.to_lowercase();
         let extra_lc = format!("{} {}", entry.id, entry.categories.join(" ")).to_lowercase();
-        Self { entry, icon, category, name_lc, extra_lc }
+        Self {
+            entry,
+            icon,
+            category,
+            name_lc,
+            extra_lc,
+        }
     }
 
     pub fn id(&self) -> &str {
@@ -111,7 +182,10 @@ impl App {
         if name.starts_with(query_lc) {
             return Some(0);
         }
-        if name.split(|c: char| !c.is_alphanumeric()).any(|w| w.starts_with(query_lc)) {
+        if name
+            .split(|c: char| !c.is_alphanumeric())
+            .any(|w| w.starts_with(query_lc))
+        {
             return Some(1);
         }
         if name.contains(query_lc) {
@@ -145,6 +219,7 @@ fn locales() -> Vec<String> {
 }
 
 /// Load visible applications, sorted A–Z.
+#[must_use]
 pub fn load() -> Vec<Arc<App>> {
     let locales = locales();
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok();

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! `cosmic-appgrid`: the centered frosted-glass app grid.
+//! `cosmic-ext-appgrid`: the centered frosted-glass app grid.
 //!
 //! Runs as a single instance. Starting it again (from the panel button or a
 //! keyboard shortcut) toggles the grid open/closed over D-Bus.
@@ -24,9 +24,13 @@ use cosmic::iced::core::event::{PlatformSpecific, wayland};
 use cosmic::iced::core::keyboard::{Key, key::Named};
 use cosmic::iced::core::window::Id as SurfaceId;
 use cosmic::iced::event::listen_with;
-use cosmic::iced::platform_specific::shell::commands::layer_surface::{destroy_layer_surface, set_padding};
+use cosmic::iced::platform_specific::shell::commands::layer_surface::{
+    destroy_layer_surface, set_padding,
+};
 use cosmic::iced::platform_specific::shell::wayland::commands::activation::request_token;
-use cosmic::iced::runtime::platform_specific::wayland::layer_surface::{IcedMargin, SctkLayerSurfaceSettings};
+use cosmic::iced::runtime::platform_specific::wayland::layer_surface::{
+    IcedMargin, SctkLayerSurfaceSettings,
+};
 use cosmic::iced::window::Event as WindowEvent;
 use cosmic::iced::{Length, Size, Subscription};
 use cosmic::surface::action::{LiveSettings, app_layer_shell};
@@ -103,19 +107,34 @@ struct AppGrid {
 }
 
 impl AppGrid {
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_wrap,
+        clippy::cast_precision_loss
+    )] // pixel sizes
     fn padding(&self) -> IcedMargin {
         let (w, h) = self.grid.panel_size();
         let w = w.min(self.size.width - 32.0);
         let h = h.min(self.size.height - 32.0);
         let x = ((self.size.width - w) / 2.0).max(0.0).floor() as i32;
         let y = ((self.size.height - h) / 2.0).max(0.0).floor() as i32;
-        IcedMargin { top: y, bottom: y, left: x, right: x }
+        IcedMargin {
+            top: y,
+            bottom: y,
+            left: x,
+            right: x,
+        }
     }
 
     fn toggle(&mut self) -> Task<Message> {
         match self.state {
             State::Visible => self.hide(),
-            State::Hidden if self.last_hide.is_none_or(|t| t.elapsed() > Duration::from_millis(150)) => {
+            State::Hidden
+                if self
+                    .last_hide
+                    .is_none_or(|t| t.elapsed() > Duration::from_millis(150)) =>
+            {
                 self.show()
             }
             _ => Task::none(),
@@ -125,14 +144,22 @@ impl AppGrid {
     /// Blur behind the panel if the user enabled Frosted glass for
     /// "System interface". The compositor clips it to the padded,
     /// rounded panel.
-    fn blur_task(&self, frosted: bool) -> Task<Message> {
+    fn blur_task(frosted: bool) -> Task<Message> {
         use cosmic::iced::runtime::{Action, platform_specific, task};
         let rects = frosted.then(|| {
-            vec![cosmic::iced::Rectangle { x: 0.0, y: 0.0, width: f32::MAX, height: f32::MAX }]
+            vec![cosmic::iced::Rectangle {
+                x: 0.0,
+                y: 0.0,
+                width: f32::MAX,
+                height: f32::MAX,
+            }]
         });
-        task::effect(Action::PlatformSpecific(platform_specific::Action::Wayland(
-            platform_specific::wayland::Action::BlurSurface(SurfaceId::RESERVED, rects),
-        )))
+        task::effect(Action::PlatformSpecific(
+            platform_specific::Action::Wayland(platform_specific::wayland::Action::BlurSurface(
+                SurfaceId::RESERVED,
+                rects,
+            )),
+        ))
     }
 
     fn frosted(&self) -> bool {
@@ -157,7 +184,7 @@ impl AppGrid {
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
                 anchor: Anchor::all(),
                 exclusive_zone: -1,
-                namespace: "cosmic-appgrid".into(),
+                namespace: "appgrid".into(),
                 size: Some((None, None)),
                 ..Default::default()
             },
@@ -224,8 +251,11 @@ impl cosmic::Application for AppGrid {
         match message {
             Message::Grid(msg) => match self.grid.update(msg) {
                 Some(grid::Event::Launch(app)) => {
-                    return request_token(Some(Self::APP_ID.to_string()), Some(SurfaceId::RESERVED))
-                        .map(move |token| cosmic::Action::App(Message::Launch(app.clone(), token)));
+                    return request_token(
+                        Some(Self::APP_ID.to_string()),
+                        Some(SurfaceId::RESERVED),
+                    )
+                    .map(move |token| cosmic::Action::App(Message::Launch(app.clone(), token)));
                 }
                 Some(grid::Event::ToggleIcon) => {
                     self.config.toggle_symbolic_icon(self.helper.as_ref());
@@ -240,7 +270,8 @@ impl cosmic::Application for AppGrid {
                 }
                 Some(grid::Event::TogglePosition) => {
                     // the panel applet watches this setting and takes over
-                    self.config.save_position(self.helper.as_ref(), Position::Panel);
+                    self.config
+                        .save_position(self.helper.as_ref(), Position::Panel);
                     return self.hide();
                 }
                 None => {}
@@ -252,12 +283,12 @@ impl cosmic::Application for AppGrid {
                 return self.hide();
             }
             Message::Hide => return self.hide(),
-            Message::Noop => {}
             // libcosmic answers this event by disabling blur on surfaces that
             // opted out of its auto blur (ours); re-apply ours after it.
             Message::BlurEnabled => return reapply_blur_later(),
-            Message::ReapplyBlur if self.state == State::Visible => return self.blur_task(self.frosted()),
-            Message::ReapplyBlur => {}
+            Message::ReapplyBlur if self.state == State::Visible => {
+                return Self::blur_task(self.frosted());
+            }
             Message::Opened(size, id) if id == SurfaceId::RESERVED => {
                 if self.state == State::WaitingToBeShown {
                     self.state = State::Visible;
@@ -266,17 +297,18 @@ impl cosmic::Application for AppGrid {
                 // padding and blur go out together so they land in the same commit
                 return Task::batch([
                     set_padding::<()>(SurfaceId::RESERVED, self.padding()).discard(),
-                    self.blur_task(self.frosted()),
+                    Self::blur_task(self.frosted()),
                     text_input::focus(SEARCH_ID.clone()),
                 ]);
             }
-            Message::Opened(..) => {}
             Message::Layer(ev, id) if id == SurfaceId::RESERVED => match ev {
                 wayland::LayerEvent::Focused => return text_input::focus(SEARCH_ID.clone()),
-                wayland::LayerEvent::Unfocused if self.state == State::Visible => return self.hide(),
+                wayland::LayerEvent::Unfocused if self.state == State::Visible => {
+                    return self.hide();
+                }
                 _ => {}
             },
-            Message::Layer(..) => {}
+            Message::Noop | Message::ReapplyBlur | Message::Opened(..) | Message::Layer(..) => {}
             Message::Config(config) => {
                 self.config = config;
                 self.grid.apply_config(&self.config);
@@ -291,19 +323,28 @@ impl cosmic::Application for AppGrid {
     /// Theme or Frosted glass setting changed: follow it live. libcosmic
     /// sends its own (disabling) blur commands for our surface right after
     /// this hook, so ours is re-applied once those have run.
-    fn system_theme_update(&mut self, _keys: &[&'static str], _theme: &cosmic::cosmic_theme::Theme) -> Task<Message> {
-        if self.state == State::Visible { reapply_blur_later() } else { Task::none() }
+    fn system_theme_update(
+        &mut self,
+        _keys: &[&'static str],
+        _theme: &cosmic::cosmic_theme::Theme,
+    ) -> Task<Message> {
+        if self.state == State::Visible {
+            reapply_blur_later()
+        } else {
+            Task::none()
+        }
     }
 
     fn dbus_activation(&mut self, msg: dbus_activation::Message) -> Task<Message> {
         match msg.msg {
             dbus_activation::Details::Activate => self.toggle(),
-            dbus_activation::Details::ActivateAction { action, .. } => match Cmd::from_str(&action) {
+            dbus_activation::Details::ActivateAction { action, .. } => match Cmd::from_str(&action)
+            {
                 Ok(Cmd::Close) => self.hide(),
                 Ok(Cmd::Toggle) => self.toggle(),
                 Err(_) => Task::none(),
             },
-            _ => Task::none(),
+            dbus_activation::Details::Open { .. } => Task::none(),
         }
     }
 
@@ -311,6 +352,12 @@ impl cosmic::Application for AppGrid {
         unimplemented!("no main window")
     }
 
+    #[allow(
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        clippy::cast_possible_wrap,
+        clippy::cast_precision_loss
+    )] // pixel sizes
     fn view_window(&self, _id: SurfaceId) -> Element<'_, Message> {
         use cosmic::iced::widget::{column, stack};
         use cosmic::widget::space;
@@ -325,8 +372,12 @@ impl cosmic::Application for AppGrid {
         // zones), so the panel is placed at the exact center of the screen.
         // Clicking anywhere outside it closes the grid.
         stack![
-            mouse_area(container(space::horizontal()).width(Length::Fill).height(Length::Fill))
-                .on_press(Message::Hide),
+            mouse_area(
+                container(space::horizontal())
+                    .width(Length::Fill)
+                    .height(Length::Fill)
+            )
+            .on_press(Message::Hide),
             column![
                 space::vertical().height(Length::Fixed(pad.top as f32)),
                 mouse_area(panel).on_press(Message::Noop),
@@ -342,22 +393,34 @@ impl cosmic::Application for AppGrid {
     fn subscription(&self) -> Subscription<Message> {
         Subscription::batch([
             listen_with(|event, status, id| match event {
-                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Layer(e, _, id))) => {
-                    Some(Message::Layer(e, id))
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::Layer(e, _, id),
+                )) => Some(Message::Layer(e, id)),
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::BlurEnabled,
+                )) => Some(Message::BlurEnabled),
+                cosmic::iced::Event::Window(WindowEvent::Opened { size, .. }) => {
+                    Some(Message::Opened(size, id))
                 }
-                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::BlurEnabled)) => {
-                    Some(Message::BlurEnabled)
-                }
-                cosmic::iced::Event::Window(WindowEvent::Opened { size, .. }) => Some(Message::Opened(size, id)),
-                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
+                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed {
+                    key,
+                    modifiers,
+                    ..
+                }) => {
                     let ignored = matches!(status, cosmic::iced::event::Status::Ignored);
                     match key {
                         Key::Named(Named::Escape) => Some(Message::Hide),
                         Key::Named(Named::ArrowUp) => Some(Message::Grid(grid::Msg::Move(0, -1))),
                         Key::Named(Named::ArrowDown) => Some(Message::Grid(grid::Msg::Move(0, 1))),
-                        Key::Named(Named::ArrowLeft) if ignored => Some(Message::Grid(grid::Msg::Move(-1, 0))),
-                        Key::Named(Named::ArrowRight) if ignored => Some(Message::Grid(grid::Msg::Move(1, 0))),
-                        Key::Named(Named::Tab) if modifiers.shift() => Some(Message::Grid(grid::Msg::Move(-1, 0))),
+                        Key::Named(Named::ArrowLeft) if ignored => {
+                            Some(Message::Grid(grid::Msg::Move(-1, 0)))
+                        }
+                        Key::Named(Named::ArrowRight) if ignored => {
+                            Some(Message::Grid(grid::Msg::Move(1, 0)))
+                        }
+                        Key::Named(Named::Tab) if modifiers.shift() => {
+                            Some(Message::Grid(grid::Msg::Move(-1, 0)))
+                        }
                         Key::Named(Named::Tab) => Some(Message::Grid(grid::Msg::Move(1, 0))),
                         Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
                         Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
@@ -375,6 +438,7 @@ impl cosmic::Application for AppGrid {
 
 fn main() -> cosmic::iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+    appgrid::i18n::init_from_desktop();
     let args = Args::parse();
     let settings = Settings::default()
         .antialiasing(true)

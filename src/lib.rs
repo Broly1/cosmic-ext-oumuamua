@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! Shared code for `cosmic-appgrid` (centered launcher) and
-//! `cosmic-appgrid-applet` (panel button / panel popup).
+//! Shared code for `cosmic-ext-appgrid` (centered launcher) and
+//! `cosmic-ext-appgrid-applet` (panel button / panel popup).
 
 pub mod apps;
 pub mod config;
 pub mod grid;
+pub mod i18n;
 
 /// Colored launcher icon (porthole, planet, rocket).
-pub const ICON_COLOR_SVG: &[u8] = include_bytes!("../data/icons/io.github.broly1.CosmicAppGrid.svg");
+pub const ICON_COLOR_SVG: &[u8] =
+    include_bytes!("../resources/icons/hicolor/scalable/apps/io.github.broly1.AppGrid.svg");
 /// Monochrome variant, tinted by the theme like other panel icons.
-pub const ICON_SYMBOLIC_SVG: &[u8] = include_bytes!("../data/icons/io.github.broly1.CosmicAppGrid-symbolic.svg");
+pub const ICON_SYMBOLIC_SVG: &[u8] = include_bytes!(
+    "../resources/icons/hicolor/symbolic/apps/io.github.broly1.AppGrid-symbolic.svg"
+);
 
 pub fn launcher_icon(symbolic: bool) -> cosmic::widget::icon::Handle {
     if symbolic {
@@ -24,12 +28,17 @@ pub fn launcher_icon(symbolic: bool) -> cosmic::widget::icon::Handle {
 /// Corner radius of the glass panel, the same one COSMIC uses for system
 /// layer surfaces (App Library etc.). Used both for drawing the panel and for
 /// the compositor's blur/clip shape, so the blur never shows past the corners.
+#[must_use]
 pub fn panel_radius(t: &cosmic::cosmic_theme::Theme) -> [f32; 4] {
     t.radius_s().map(|x| if x < 4.0 { x } else { x + 4.0 })
 }
 
 /// The same radius as a Wayland corner-radius hint for the compositor.
-pub fn panel_corners(t: &cosmic::cosmic_theme::Theme) -> cosmic::iced::runtime::platform_specific::wayland::CornerRadius {
+#[must_use]
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)] // small positive radii
+pub fn panel_corners(
+    t: &cosmic::cosmic_theme::Theme,
+) -> cosmic::iced::runtime::platform_specific::wayland::CornerRadius {
     let r = panel_radius(t).map(|x| x.round() as u32);
     cosmic::iced::runtime::platform_specific::wayland::CornerRadius {
         top_left: r[0],
@@ -42,6 +51,7 @@ pub fn panel_corners(t: &cosmic::cosmic_theme::Theme) -> cosmic::iced::runtime::
 /// Glass panel style: COSMIC background that follows the user's
 /// "Frosted glass" opacity when libcosmic marks this surface transparent
 /// (`theme.transparent`), plus the theme's corner radius and divider border.
+#[must_use]
 pub fn glass_style(theme: &cosmic::Theme) -> cosmic::widget::container::Style {
     use cosmic::iced::{Border, Color, Shadow};
     let t = theme.cosmic();

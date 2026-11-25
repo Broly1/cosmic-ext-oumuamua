@@ -7,7 +7,7 @@
 use cosmic::cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry};
 use serde::{Deserialize, Serialize};
 
-pub const APP_ID: &str = "io.github.broly1.CosmicAppGrid";
+pub const APP_ID: &str = "io.github.broly1.AppGrid";
 
 /// Where the grid opens.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -50,10 +50,12 @@ impl Default for AppGridConfig {
 }
 
 impl AppGridConfig {
+    #[must_use]
     pub fn helper() -> Option<cosmic_config::Config> {
         cosmic_config::Config::new(APP_ID, Self::VERSION).ok()
     }
 
+    #[must_use]
     pub fn load() -> (Option<cosmic_config::Config>, Self) {
         let helper = Self::helper();
         let config = helper
@@ -84,29 +86,29 @@ impl AppGridConfig {
     }
 
     fn save_recent(&mut self, helper: Option<&cosmic_config::Config>, recent: Vec<String>) {
-        if let Some(h) = helper {
-            if let Err(e) = self.set_recent(h, recent.clone()) {
-                log::error!("failed to save recent apps: {e:?}");
-            }
+        if let Some(h) = helper
+            && let Err(e) = self.set_recent(h, recent.clone())
+        {
+            log::error!("failed to save recent apps: {e:?}");
         }
         self.recent = recent;
     }
 
     pub fn toggle_symbolic_icon(&mut self, helper: Option<&cosmic_config::Config>) {
         let v = !self.symbolic_icon;
-        if let Some(h) = helper {
-            if let Err(e) = self.set_symbolic_icon(h, v) {
-                log::error!("failed to save icon style: {e:?}");
-            }
+        if let Some(h) = helper
+            && let Err(e) = self.set_symbolic_icon(h, v)
+        {
+            log::error!("failed to save icon style: {e:?}");
         }
         self.symbolic_icon = v;
     }
 
     pub fn save_position(&mut self, helper: Option<&cosmic_config::Config>, position: Position) {
-        if let Some(h) = helper {
-            if let Err(e) = self.set_position(h, position) {
-                log::error!("failed to save position: {e:?}");
-            }
+        if let Some(h) = helper
+            && let Err(e) = self.set_position(h, position)
+        {
+            log::error!("failed to save position: {e:?}");
         }
         self.position = position;
     }

@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.broly1.AppGridApplet</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>App Grid</name>
+  <summary>Open the application grid, centered on screen or attached to the panel</summary>
+  <description>
+    <p>
+      A frosted-glass application grid for the COSMIC™ desktop. It opens in the
+      center of the screen wherever the panel is, or as a popup attached to the
+      panel button. It has search, category filters and a row of recently used
+      apps, and its glass follows the desktop's Frosted glass settings.
+    </p>
+  </description>
+  <developer id="io.github.broly1">
+    <name>Broly1</name>
+  </developer>
+  <icon type="remote" width="64" height="64" scale="1">
+    https://github.com/Broly1/cosmic-ext-appgrid/raw/main/resources/icons/hicolor/scalable/apps/io.github.broly1.AppGrid.svg
+  </icon>
+  <url type="homepage">https://github.com/Broly1/cosmic-ext-appgrid</url>
+  <url type="vcs-browser">https://github.com/Broly1/cosmic-ext-appgrid</url>
+  <url type="bugtracker">https://github.com/Broly1/cosmic-ext-appgrid/issues</url>
+  <launchable type="desktop-id">io.github.broly1.AppGridApplet.desktop</launchable>
+  <provides>
+    <id>com.system76.CosmicApplet</id>
+    <binaries>
+      <binary>cosmic-ext-appgrid-applet</binary>
+      <binary>cosmic-ext-appgrid</binary>
+    </binaries>
+  </provides>
+  <requires>
+    <display_length compare="ge">360</display_length>
+  </requires>
+  <supports>
+    <control>keyboard</control>
+    <control>pointing</control>
+    <control>touch</control>
+  </supports>
+  <categories>
+    <category>COSMIC</category>
+  </categories>
+  <keywords>
+    <keyword>COSMIC</keyword>
+  </keywords>
+  <content_rating type="oars-1.1" />
+</component>

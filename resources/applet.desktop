@@ -1,0 +1,14 @@
+[Desktop Entry]
+Name=App Grid
+Comment=Open the application grid, centered on screen or attached to the panel
+Type=Application
+Icon=io.github.broly1.AppGrid
+Exec=cosmic-ext-appgrid-applet
+Terminal=false
+StartupNotify=true
+NoDisplay=true
+Categories=COSMIC;
+Keywords=COSMIC;
+X-CosmicApplet=true
+X-CosmicHoverPopup=Auto
+X-OverflowPriority=10

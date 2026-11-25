@@ -1,18 +1,24 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! `cosmic-appgrid-applet`: the panel button.
+//! `cosmic-ext-appgrid-applet`: the panel button.
 //!
-//! * Position::Centered (default): clicking runs `cosmic-appgrid`, which
+//! * `Position::Centered` (default): clicking runs `cosmic-ext-appgrid`, which
 //!   toggles the centered grid (single instance over D-Bus).
-//! * Position::Panel: clicking opens the same grid as a popup attached to the
+//! * `Position::Panel`: clicking opens the same grid as a popup attached to the
 //!   panel button, like the Windows 11 Start menu. As an applet popup it
 //!   follows the user's Frosted glass "Applets" setting.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use appgrid::apps::App;
 use appgrid::config::{AppGridConfig, Position};
 use appgrid::grid::{self, Grid, SEARCH_ID};
+use cosmic::Element;
 use cosmic::app::{Core, Task};
+use cosmic::applet::token::subscription::{
+    TokenRequest, TokenUpdate, activation_token_subscription,
+};
+use cosmic::cctk::sctk::reexports::calloop;
 use cosmic::cosmic_config;
 use cosmic::iced::core::keyboard::{Key, key::Named};
 use cosmic::iced::event::listen_with;
@@ -20,18 +26,17 @@ use cosmic::iced::window::Id;
 use cosmic::iced::{Length, Limits, Rectangle, Subscription};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{container, text_input};
-use cosmic::Element;
 
-/// Run `cosmic-appgrid` (toggles the centered grid) and reap it in the
+/// Run `cosmic-ext-appgrid` (toggles the centered grid) and reap it in the
 /// background so no zombie processes pile up in the panel applet.
 fn toggle_centered_grid() {
-    match std::process::Command::new("cosmic-appgrid").spawn() {
+    match std::process::Command::new("cosmic-ext-appgrid").spawn() {
         Ok(mut child) => {
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
         }
-        Err(e) => log::error!("failed to start cosmic-appgrid: {e}"),
+        Err(e) => log::error!("failed to start cosmic-ext-appgrid: {e}"),
     }
 }
 
@@ -43,6 +48,7 @@ enum Message {
     Close,
     Config(AppGridConfig),
     Surface(cosmic::surface::Action<Message>),
+    Token(TokenUpdate),
 }
 
 struct Applet {
@@ -51,6 +57,10 @@ struct Applet {
     config: AppGridConfig,
     grid: Grid,
     popup: Option<Id>,
+    /// Requests Wayland activation tokens so launched apps get focus.
+    token_tx: Option<calloop::channel::Sender<TokenRequest>>,
+    /// Apps waiting for their activation token, by desktop-entry ID.
+    pending_launch: HashMap<String, Arc<App>>,
 }
 
 impl Applet {
@@ -67,21 +77,31 @@ impl Applet {
         let open = cosmic::task::message(cosmic::Action::Surface(app_popup::<Applet>(
             // default live settings: libcosmic applies the theme's applet
             // corners and the user's frosted "Applets" blur to the popup
-            |_: &Applet| Default::default(),
+            |_: &Applet| cosmic::surface::action::LiveSettings::default(),
             move |state: &mut Applet| {
                 let id = Id::unique();
                 state.popup = Some(id);
-                let mut s = state
-                    .core
-                    .applet
-                    .get_popup_settings(state.core.main_window_id().unwrap(), id, None, None, None);
-                s.positioner.anchor_rect = Rectangle {
+                let mut s = state.core.applet.get_popup_settings(
+                    state.core.main_window_id().unwrap(),
+                    id,
+                    None,
+                    None,
+                    None,
+                );
+                // logical pixel coordinates of the panel button
+                #[allow(clippy::cast_possible_truncation)]
+                let anchor_rect = Rectangle {
                     x: anchor.x as i32,
                     y: anchor.y as i32,
                     width: anchor.width as i32,
                     height: anchor.height as i32,
                 };
-                s.positioner.size_limits = Limits::NONE.min_width(w).max_width(w).min_height(h).max_height(h);
+                s.positioner.anchor_rect = anchor_rect;
+                s.positioner.size_limits = Limits::NONE
+                    .min_width(w)
+                    .max_width(w)
+                    .min_height(h)
+                    .max_height(h);
                 s
             },
             Some(Box::new(|state: &Applet| {
@@ -91,11 +111,13 @@ impl Applet {
                     .height(Length::Fixed(h));
                 // popup_container defaults to a fixed 360 px applet width; the
                 // grid needs its own size
-                let popup = state
-                    .core
-                    .applet
-                    .popup_container(content)
-                    .limits(Limits::NONE.min_width(w).max_width(w).min_height(h).max_height(h));
+                let popup = state.core.applet.popup_container(content).limits(
+                    Limits::NONE
+                        .min_width(w)
+                        .max_width(w)
+                        .min_height(h)
+                        .max_height(h),
+                );
                 Element::from(popup).map(cosmic::Action::App)
             })),
         )));
@@ -105,7 +127,26 @@ impl Applet {
     fn launch(&mut self, app: Arc<App>) -> Task<Message> {
         self.config.record_launch(self.helper.as_ref(), app.id());
         self.grid.apply_config(&self.config);
-        tokio::spawn(appgrid::apps::launch(app, None));
+        match self.token_tx.as_ref() {
+            // ask the compositor for an activation token first (see Message::Token)
+            Some(tx) => {
+                let id = app.id().to_string();
+                if tx
+                    .send(TokenRequest {
+                        app_id: <Self as cosmic::Application>::APP_ID.to_string(),
+                        exec: id.clone(),
+                    })
+                    .is_ok()
+                {
+                    self.pending_launch.insert(id, app);
+                } else {
+                    tokio::spawn(appgrid::apps::launch(app, None));
+                }
+            }
+            None => {
+                tokio::spawn(appgrid::apps::launch(app, None));
+            }
+        }
         self.close_popup()
     }
 }
@@ -114,7 +155,7 @@ impl cosmic::Application for Applet {
     type Executor = cosmic::SingleThreadExecutor;
     type Flags = ();
     type Message = Message;
-    const APP_ID: &'static str = "io.github.broly1.CosmicAppGridApplet";
+    const APP_ID: &'static str = "io.github.broly1.AppGridApplet";
 
     fn core(&self) -> &Core {
         &self.core
@@ -124,11 +165,22 @@ impl cosmic::Application for Applet {
         &mut self.core
     }
 
-    fn init(core: Core, _: ()) -> (Self, Task<Message>) {
+    fn init(core: Core, (): ()) -> (Self, Task<Message>) {
         let (helper, config) = AppGridConfig::load();
         let mut grid = Grid::new(Position::Panel);
         grid.apply_config(&config);
-        (Self { core, helper, config, grid, popup: None }, Task::none())
+        (
+            Self {
+                core,
+                helper,
+                config,
+                grid,
+                popup: None,
+                token_tx: None,
+                pending_launch: HashMap::new(),
+            },
+            Task::none(),
+        )
     }
 
     fn on_close_requested(&self, id: Id) -> Option<Message> {
@@ -166,7 +218,8 @@ impl cosmic::Application for Applet {
                     return task.map(|m| cosmic::Action::App(Message::Grid(m)));
                 }
                 Some(grid::Event::TogglePosition) => {
-                    self.config.save_position(self.helper.as_ref(), Position::Centered);
+                    self.config
+                        .save_position(self.helper.as_ref(), Position::Centered);
                     let close = self.close_popup();
                     // open the centered grid right away so the switch feels instant
                     toggle_centered_grid();
@@ -179,6 +232,15 @@ impl cosmic::Application for Applet {
                 self.grid.apply_config(&self.config);
             }
             Message::Surface(a) => return cosmic::task::message(cosmic::Action::Surface(a)),
+            Message::Token(u) => match u {
+                TokenUpdate::Init(tx) => self.token_tx = Some(tx),
+                TokenUpdate::Finished => self.token_tx = None,
+                TokenUpdate::ActivationToken { token, exec } => {
+                    if let Some(app) = self.pending_launch.remove(&exec) {
+                        tokio::spawn(appgrid::apps::launch(app, token));
+                    }
+                }
+            },
         }
         Task::none()
     }
@@ -198,7 +260,7 @@ impl cosmic::Application for Applet {
             });
         Element::from(self.core.applet.applet_tooltip::<Message>(
             btn,
-            "Applications",
+            appgrid::fl!("applications"),
             self.popup.is_some(),
             Message::Surface,
             None,
@@ -211,20 +273,28 @@ impl cosmic::Application for Applet {
 
     fn subscription(&self) -> Subscription<Message> {
         let mut subs = vec![
+            activation_token_subscription(0).map(Message::Token),
             self.core
                 .watch_config::<AppGridConfig>(appgrid::config::APP_ID)
                 .map(|u| Message::Config(u.config)),
         ];
         if self.popup.is_some() {
             subs.push(listen_with(|event, status, _| match event {
-                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed { key, .. }) => {
+                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed {
+                    key,
+                    ..
+                }) => {
                     let ignored = matches!(status, cosmic::iced::event::Status::Ignored);
                     match key {
                         Key::Named(Named::Escape) => Some(Message::Close),
                         Key::Named(Named::ArrowUp) => Some(Message::Grid(grid::Msg::Move(0, -1))),
                         Key::Named(Named::ArrowDown) => Some(Message::Grid(grid::Msg::Move(0, 1))),
-                        Key::Named(Named::ArrowLeft) if ignored => Some(Message::Grid(grid::Msg::Move(-1, 0))),
-                        Key::Named(Named::ArrowRight) if ignored => Some(Message::Grid(grid::Msg::Move(1, 0))),
+                        Key::Named(Named::ArrowLeft) if ignored => {
+                            Some(Message::Grid(grid::Msg::Move(-1, 0)))
+                        }
+                        Key::Named(Named::ArrowRight) if ignored => {
+                            Some(Message::Grid(grid::Msg::Move(1, 0)))
+                        }
                         Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
                         Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
                         _ => None,
@@ -243,5 +313,6 @@ impl cosmic::Application for Applet {
 
 fn main() -> cosmic::iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
+    appgrid::i18n::init_from_desktop();
     cosmic::applet::run::<Applet>(())
 }

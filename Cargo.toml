@@ -1,9 +1,10 @@
 [package]
-name = "cosmic-appgrid"
+name = "cosmic-ext-appgrid"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"
-description = "A frosted-glass application grid launcher for the COSMIC desktop"
+description = "A frosted-glass application grid launcher for the COSMIC™ desktop"
+repository = "https://github.com/Broly1/cosmic-ext-appgrid"
 rust-version = "1.90"
 
 [lib]
@@ -11,33 +12,51 @@ name = "appgrid"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cosmic-appgrid"
+name = "cosmic-ext-appgrid"
 path = "src/main.rs"
 
 [[bin]]
-name = "cosmic-appgrid-applet"
+name = "cosmic-ext-appgrid-applet"
 path = "src/bin/applet.rs"
+
+[build-dependencies]
+xdgen = "0.1"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 env_logger = "0.11"
+i18n-embed-fl = "0.10"
 log = "0.4"
+rust-embed = "8.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt", "sync", "process", "time"] }
 
+[dependencies.i18n-embed]
+version = "0.16"
+features = ["fluent-system", "desktop-requester"]
+
 # libcosmic is pinned to the revision this was developed and tested against.
+# See https://github.com/pop-os/libcosmic/blob/master/Cargo.toml for features.
 [dependencies.libcosmic]
 git = "https://github.com/pop-os/libcosmic"
 rev = "009fb9d4138f25615122c4ccc42d025472da9cdd"
 default-features = false
 features = [
+    # Applet support, and activation tokens so launched apps get focus
     "applet",
+    "applet-token",
+    # Uses cosmic-settings-daemon to watch for config file changes
     "dbus-config",
+    # Desktop entry loading
     "desktop",
+    # Support creating additional surfaces
     "multi-window",
+    # Toggle the running launcher instead of starting a second one
     "single-instance",
+    # Uses tokio as the executor for the runtime
     "tokio",
+    # Add Wayland support to winit
     "wayland",
     "wgpu",
     "winit",
@@ -51,3 +70,9 @@ features = ["tokio"]
 
 [profile.release]
 lto = "thin"
+
+# Uncomment to test a locally-cloned libcosmic
+# [patch.'https://github.com/pop-os/libcosmic']
+# libcosmic = { path = "../libcosmic" }
+# cosmic-config = { path = "../libcosmic/cosmic-config" }
+# cosmic-theme = { path = "../libcosmic/cosmic-theme" }

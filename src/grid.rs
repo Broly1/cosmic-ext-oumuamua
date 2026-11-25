@@ -6,6 +6,15 @@
 //! each wraps [`Grid::view`] in its own surface and maps [`Msg`] into its own
 //! message type.
 
+// Pixel geometry and grid indices are small (screen sizes, a few hundred
+// apps), so the numeric casts in this module cannot overflow in practice.
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_sign_loss,
+    clippy::cast_possible_wrap,
+    clippy::cast_precision_loss
+)]
+
 use std::sync::{Arc, LazyLock};
 
 use cosmic::iced::widget::scrollable::AbsoluteOffset;
@@ -84,6 +93,7 @@ pub struct Grid {
 }
 
 impl Grid {
+    #[must_use]
     pub fn new(mode: Position) -> Self {
         Self {
             apps: Vec::new(),
@@ -110,7 +120,7 @@ impl Grid {
         self.icon_size = config.icon_size.clamp(32, 128);
         self.symbolic_icon = config.symbolic_icon;
         if self.recent_ids != config.recent {
-            self.recent_ids = config.recent.clone();
+            self.recent_ids.clone_from(&config.recent);
             self.refresh_recent();
         }
     }
@@ -140,6 +150,7 @@ impl Grid {
     }
 
     /// Logical size of the grid panel, used to size/center the surface.
+    #[must_use]
     pub fn panel_size(&self) -> (f32, f32) {
         let (cw, _) = self.cell_size();
         let w = 2.0 * OUTER_PAD + self.columns as f32 * (cw + SPACING) - SPACING + GUTTER;
@@ -195,7 +206,11 @@ impl Grid {
         // stable sort keeps A–Z order within the same score
         scored.sort_by_key(|(s, _)| *s);
         self.filtered = scored.into_iter().map(|(_, i)| i).collect();
-        self.selected = if q.is_empty() || self.filtered.is_empty() { None } else { Some((0, 0)) };
+        self.selected = if q.is_empty() || self.filtered.is_empty() {
+            None
+        } else {
+            Some((0, 0))
+        };
     }
 
     fn app_at(&self, sel: (usize, usize)) -> Option<&Arc<App>> {
@@ -204,12 +219,15 @@ impl Grid {
         self.apps.get(i)
     }
 
-    fn scroll_to(&mut self, y: f32) -> Option<Event> {
+    fn scroll_to(&mut self, y: f32) -> Event {
         self.scroll_y = y.max(0.0);
-        Some(Event::Task(cosmic::iced::widget::scrollable::scroll_to(
+        Event::Task(cosmic::iced::widget::scrollable::scroll_to(
             SCROLL_ID.clone(),
-            AbsoluteOffset { x: None, y: Some(self.scroll_y) },
-        )))
+            AbsoluteOffset {
+                x: None,
+                y: Some(self.scroll_y),
+            },
+        ))
     }
 
     /// Scroll so the selected row is fully visible.
@@ -219,9 +237,9 @@ impl Grid {
         let top = self.row_y(r);
         let bottom = top + ch;
         if top < self.scroll_y {
-            self.scroll_to(top)
+            Some(self.scroll_to(top))
         } else if bottom > self.scroll_y + self.viewport_h() {
-            self.scroll_to(bottom - self.viewport_h())
+            Some(self.scroll_to(bottom - self.viewport_h()))
         } else {
             None
         }
@@ -259,7 +277,7 @@ impl Grid {
             Msg::Search(q) => {
                 self.query = q;
                 self.refilter();
-                return self.scroll_to(0.0);
+                return Some(self.scroll_to(0.0));
             }
             Msg::Submit => {
                 let sel = self.selected.unwrap_or((0, 0));
@@ -267,9 +285,13 @@ impl Grid {
             }
             Msg::Launch(i) => return self.apps.get(i).map(|a| Event::Launch(a.clone())),
             Msg::Category(c) => {
-                self.category = if self.category == Some(c) { None } else { Some(c) };
+                self.category = if self.category == Some(c) {
+                    None
+                } else {
+                    Some(c)
+                };
                 self.refilter();
-                return self.scroll_to(0.0);
+                return Some(self.scroll_to(0.0));
             }
             Msg::Move(dx, dy) => return self.move_selection(dx, dy),
             Msg::PageDown => return self.move_selection(0, self.visible_rows as i32),
@@ -293,21 +315,25 @@ impl Grid {
         None
     }
 
-    pub fn view(&self) -> Element<'_, Msg> {
-        let (cw, ch) = self.cell_size();
-
-        // ---- header: search + ⋯ menu
+    /// Search field and ⋯ menu.
+    fn header(&self) -> Element<'_, Msg> {
         let menu_btn = button::icon(icon::from_name("view-more-horizontal-symbolic").size(16))
             .padding(8)
             .on_press(Msg::ToggleMenu);
-        let mut menu = popover(menu_btn).position(widget::popover::Position::Bottom).on_close(Msg::CloseMenu);
+        let mut menu = popover(menu_btn)
+            .position(widget::popover::Position::Bottom)
+            .on_close(Msg::CloseMenu);
         if self.menu_open {
             let move_label = match self.mode {
-                Position::Centered => "Attach to panel",
-                Position::Panel => "Center on screen",
+                Position::Centered => crate::fl!("attach-to-panel"),
+                Position::Panel => crate::fl!("center-on-screen"),
             };
-            let icon_label = if self.symbolic_icon { "Colored panel icon" } else { "Monochrome panel icon" };
-            let item = |label: &'static str, msg: Msg| {
+            let icon_label = if self.symbolic_icon {
+                crate::fl!("colored-icon")
+            } else {
+                crate::fl!("monochrome-icon")
+            };
+            let item = |label: String, msg: Msg| {
                 button::custom(text(label).size(13))
                     .class(theme::Button::MenuItem)
                     .padding([6, 12])
@@ -318,14 +344,14 @@ impl Grid {
                 container(column![
                     item(move_label, Msg::TogglePosition),
                     item(icon_label, Msg::ToggleIcon),
-                    item("Clear recent apps", Msg::ClearRecent),
+                    item(crate::fl!("clear-recent"), Msg::ClearRecent),
                 ])
-                    .padding(4)
-                    .class(theme::Container::Dropdown),
+                .padding(4)
+                .class(theme::Container::Dropdown),
             );
         }
         let header = row![
-            search_input("Applications", &self.query)
+            search_input(crate::fl!("search-placeholder"), &self.query)
                 .on_input(Msg::Search)
                 .on_paste(Msg::Search)
                 .on_submit(|_| Msg::Submit)
@@ -336,30 +362,51 @@ impl Grid {
         .spacing(8)
         .align_y(Alignment::Center)
         .height(Length::Fixed(HEADER_H));
+        header.into()
+    }
 
-        // ---- category chips
+    /// Category filter chips (only categories that have apps).
+    fn chips(&self) -> Element<'_, Msg> {
         let chips: Vec<Element<'_, Msg>> = self
             .categories
             .iter()
             .map(|&c| {
                 button::custom(text(c.label()).size(12))
-                    .class(if self.category == Some(c) { theme::Button::Suggested } else { theme::Button::Standard })
+                    .class(if self.category == Some(c) {
+                        theme::Button::Suggested
+                    } else {
+                        theme::Button::Standard
+                    })
                     .padding([4, 12])
                     .on_press(Msg::Category(c))
                     .into()
             })
             .collect();
-        let chips = cosmic::widget::scrollable::horizontal(row(chips).spacing(6).padding([0, 0, 8, 0]))
-            .height(Length::Fixed(CHIPS_H));
+        let chips =
+            cosmic::widget::scrollable::horizontal(row(chips).spacing(6).padding([0, 0, 8, 0]))
+                .height(Length::Fixed(CHIPS_H));
+        chips.into()
+    }
+
+    pub fn view(&self) -> Element<'_, Msg> {
+        let (cw, ch) = self.cell_size();
+        let header = self.header();
+        let chips = self.chips();
 
         // ---- recent row + all apps (scrolling)
         let rows = self.rows();
         let mut content: Vec<Element<'_, Msg>> = Vec::with_capacity(rows.len() + 1);
         for (r, apps) in rows.iter().enumerate() {
-            let mut cells: Vec<Element<'_, Msg>> =
-                apps.iter().enumerate().map(|(c, &i)| self.cell(i, (r, c), cw, ch)).collect();
+            let mut cells: Vec<Element<'_, Msg>> = apps
+                .iter()
+                .enumerate()
+                .map(|(c, &i)| self.cell(i, (r, c), cw, ch))
+                .collect();
             cells.extend((apps.len()..self.columns).map(|_| {
-                widget::Space::new().width(Length::Fixed(cw)).height(Length::Fixed(ch)).into()
+                widget::Space::new()
+                    .width(Length::Fixed(cw))
+                    .height(Length::Fixed(ch))
+                    .into()
             }));
             content.push(row(cells).spacing(SPACING).into());
             if r == 0 && self.show_recent() {
@@ -371,17 +418,21 @@ impl Grid {
             }
         }
         let body: Element<'_, Msg> = if rows.is_empty() {
-            container(text("No applications found").size(14))
+            container(text(crate::fl!("no-results")).size(14))
                 .center_x(Length::Fill)
                 .center_y(Length::Fixed(self.viewport_h()))
                 .into()
         } else {
-            cosmic::widget::scrollable(column(content).spacing(SPACING).padding([0.0, GUTTER, 0.0, 0.0]))
-                .id(SCROLL_ID.clone())
-                .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
-                .width(Length::Fill)
-                .height(Length::Fixed(self.viewport_h()))
-                .into()
+            cosmic::widget::scrollable(
+                column(content)
+                    .spacing(SPACING)
+                    .padding([0.0, GUTTER, 0.0, 0.0]),
+            )
+            .id(SCROLL_ID.clone())
+            .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
+            .width(Length::Fill)
+            .height(Length::Fixed(self.viewport_h()))
+            .into()
         };
 
         column![header, chips, body]
@@ -399,12 +450,22 @@ impl Grid {
         let name = app.name();
         let truncated = name.chars().count() > max_chars;
         let label = if truncated {
-            format!("{}…", name.chars().take(max_chars.saturating_sub(1)).collect::<String>().trim_end())
+            format!(
+                "{}…",
+                name.chars()
+                    .take(max_chars.saturating_sub(1))
+                    .collect::<String>()
+                    .trim_end()
+            )
         } else {
             name.to_string()
         };
         let content = column![
-            app.icon.clone().icon().width(Length::Fixed(icon_px)).height(Length::Fixed(icon_px)),
+            app.icon
+                .clone()
+                .icon()
+                .width(Length::Fixed(icon_px))
+                .height(Length::Fixed(icon_px)),
             text(label).size(12).wrapping(text::Wrapping::None),
         ]
         .spacing(6)
@@ -418,7 +479,12 @@ impl Grid {
             .on_press(Msg::Launch(i));
         if truncated {
             // full name on hover when the label is cut
-            widget::tooltip(btn, text(name.to_string()), widget::tooltip::Position::Bottom).into()
+            widget::tooltip(
+                btn,
+                text(name.to_string()),
+                widget::tooltip::Position::Bottom,
+            )
+            .into()
         } else {
             btn.into()
         }
