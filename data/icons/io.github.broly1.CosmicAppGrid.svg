@@ -1,6 +1,8 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <!-- COSMIC App Grid icon: a porthole into space with a planet and a
-       rocket, inspired by the Pop!_OS installer artwork. GPL-3.0-only -->
+       rocket, inspired by the Pop!_OS installer artwork. Everything stays
+       inside the circle with a margin so it never looks cut off in a
+       panel. GPL-3.0-only -->
   <defs>
     <radialGradient id="space" cx="0.35" cy="0.3" r="0.8">
       <stop offset="0" stop-color="#1d4f80"/>
@@ -23,39 +25,36 @@
       <stop offset="0" stop-color="#6cc8ff" stop-opacity="0.9"/>
       <stop offset="1" stop-color="#6cc8ff" stop-opacity="0"/>
     </linearGradient>
-    <clipPath id="port"><circle cx="32" cy="34" r="24"/></clipPath>
+    <clipPath id="port"><circle cx="32" cy="33" r="21"/></clipPath>
   </defs>
 
   <!-- porthole -->
-  <circle cx="32" cy="34" r="28.5" fill="#0b1626"/>
-  <circle cx="32" cy="34" r="24" fill="url(#space)"/>
+  <circle cx="32" cy="33" r="25" fill="#0b1626"/>
+  <circle cx="32" cy="33" r="21" fill="url(#space)"/>
   <g clip-path="url(#port)">
-    <circle cx="20" cy="24" r="0.9" fill="#fff" opacity="0.8"/>
-    <circle cx="40" cy="20" r="0.7" fill="#fff" opacity="0.7"/>
-    <circle cx="27" cy="16" r="0.6" fill="#fff" opacity="0.6"/>
-    <circle cx="14" cy="38" r="0.7" fill="#fff" opacity="0.6"/>
+    <circle cx="22" cy="20" r="0.8" fill="#fff" opacity="0.8"/>
+    <circle cx="38" cy="18" r="0.6" fill="#fff" opacity="0.7"/>
+    <circle cx="16" cy="36" r="0.6" fill="#fff" opacity="0.6"/>
     <!-- planet -->
-    <circle cx="50" cy="52" r="27" fill="url(#planet)" stroke="#8fd3e0" stroke-width="2.5"/>
-    <ellipse cx="44" cy="40" rx="5" ry="2.6" fill="#f9c58c" opacity="0.7"/>
-    <ellipse cx="52" cy="47" rx="3.5" ry="2" fill="#a94f22" opacity="0.45"/>
-    <ellipse cx="38" cy="52" rx="4" ry="2" fill="#f9c58c" opacity="0.5"/>
+    <circle cx="48" cy="50" r="21" fill="url(#planet)" stroke="#8fd3e0" stroke-width="2.2"/>
+    <ellipse cx="43" cy="40" rx="4" ry="2" fill="#f9c58c" opacity="0.7"/>
+    <ellipse cx="50" cy="46" rx="3" ry="1.7" fill="#a94f22" opacity="0.45"/>
     <!-- moon -->
-    <circle cx="17.5" cy="25" r="3" fill="#cfd3dc" stroke="#eef5f7" stroke-width="1.2"/>
+    <circle cx="19" cy="25" r="2.4" fill="#cfd3dc" stroke="#eef5f7" stroke-width="1"/>
+    <!-- rocket, flying up and to the right, fully inside the porthole -->
+    <g transform="translate(28 37) rotate(-40) scale(1.3)">
+      <ellipse cx="-14" cy="0" rx="8" ry="2.6" fill="url(#trail)"/>
+      <path d="M-5 -3.4 L-10.5 -9.5 L-1.5 -3.4 Z" fill="#dfe5ec" stroke="#7d8896" stroke-width="0.5"/>
+      <path d="M-5 3.4 L-10.5 9.5 L-1.5 3.4 Z" fill="#c9d1db" stroke="#7d8896" stroke-width="0.5"/>
+      <path d="M-8.5 -3.7 L4 -3.7 Q10.5 -2.2 12.5 0 Q10.5 2.2 4 3.7 L-8.5 3.7 Q-9.7 0 -8.5 -3.7 Z"
+            fill="url(#hull)" stroke="#6f7b8a" stroke-width="0.6"/>
+      <rect x="0.8" y="-3.6" width="1.7" height="7.2" fill="#33bccc"/>
+      <rect x="4.2" y="-3.4" width="1" height="6.8" fill="#33bccc"/>
+      <circle cx="-9" cy="0" r="4.6" fill="url(#glow)"/>
+    </g>
   </g>
-  <circle cx="32" cy="34" r="25.3" fill="none" stroke="#f4efd8" stroke-width="3"/>
+  <circle cx="32" cy="33" r="22.2" fill="none" stroke="#f4efd8" stroke-width="2.6"/>
 
   <!-- sun sitting on the rim -->
-  <circle cx="38" cy="9" r="5.5" fill="#f5c63c" stroke="#f4efd8" stroke-width="2.2"/>
-
-  <!-- rocket, flying up and to the right -->
-  <g transform="translate(23 44) rotate(-38)">
-    <ellipse cx="-17" cy="0" rx="13" ry="3.2" fill="url(#trail)"/>
-    <path d="M-6 -4 L-13 -11.5 L-2 -4 Z" fill="#dfe5ec" stroke="#7d8896" stroke-width="0.6"/>
-    <path d="M-6 4 L-13 11.5 L-2 4 Z" fill="#c9d1db" stroke="#7d8896" stroke-width="0.6"/>
-    <path d="M-10 -4.4 L5 -4.4 Q13 -2.6 15.5 0 Q13 2.6 5 4.4 L-10 4.4 Q-11.5 0 -10 -4.4 Z"
-          fill="url(#hull)" stroke="#6f7b8a" stroke-width="0.7"/>
-    <rect x="1" y="-4.3" width="2" height="8.6" fill="#33bccc"/>
-    <rect x="5" y="-4.1" width="1.2" height="8.2" fill="#33bccc"/>
-    <circle cx="-10.5" cy="0" r="6" fill="url(#glow)"/>
-  </g>
+  <circle cx="43" cy="13.8" r="4.2" fill="#f5c63c" stroke="#f4efd8" stroke-width="1.8"/>
 </svg>

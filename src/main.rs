@@ -8,7 +8,8 @@
 //! (`exclusive_zone = -1`) and is padded down to the grid's size, so it always
 //! sits in the exact center of the screen wherever the panel is. Blur is
 //! requested only when the user enabled Frosted glass for "System interface",
-//! and is re-applied live when that setting changes.
+//! together with the padding (so it never covers the whole screen), and is
+//! re-applied live when that setting changes.
 
 use std::str::FromStr;
 use std::time::{Duration, Instant};
@@ -81,6 +82,9 @@ enum Message {
     Grid(grid::Msg),
     Hide,
     Noop,
+    /// The compositor confirmed blur support (startup).
+    BlurEnabled,
+    ReapplyBlur,
     Opened(Size, SurfaceId),
     Layer(wayland::LayerEvent, SurfaceId),
     Config(AppGridConfig),
@@ -118,6 +122,23 @@ impl AppGrid {
         }
     }
 
+    /// Blur behind the panel if the user enabled Frosted glass for
+    /// "System interface". The compositor clips it to the padded,
+    /// rounded panel.
+    fn blur_task(&self, frosted: bool) -> Task<Message> {
+        use cosmic::iced::runtime::{Action, platform_specific, task};
+        let rects = frosted.then(|| {
+            vec![cosmic::iced::Rectangle { x: 0.0, y: 0.0, width: f32::MAX, height: f32::MAX }]
+        });
+        task::effect(Action::PlatformSpecific(platform_specific::Action::Wayland(
+            platform_specific::wayland::Action::BlurSurface(SurfaceId::RESERVED, rects),
+        )))
+    }
+
+    fn frosted(&self) -> bool {
+        self.core.system_theme().cosmic().frosted_system_interface
+    }
+
     fn show(&mut self) -> Task<Message> {
         self.state = State::WaitingToBeShown;
         self.grid.reset();
@@ -125,10 +146,10 @@ impl AppGrid {
             |app: &AppGrid| LiveSettings {
                 padding: Some(app.padding()),
                 corners: Some(appgrid::panel_corners(app.core.system_theme().cosmic())),
-                // None = libcosmic owns the blur: it enables/disables it from the
-                // user's Frosted glass "System interface" setting (live), and the
-                // compositor clips it to the padded, rounded panel.
-                blur: None,
+                // Not None: libcosmic would blur the whole surface before the
+                // padding exists, flashing the entire screen. Blur is sent
+                // together with the padding once the surface is open.
+                blur: Some(false),
             },
             |_: &mut AppGrid| SctkLayerSurfaceSettings {
                 id: SurfaceId::RESERVED,
@@ -152,6 +173,14 @@ impl AppGrid {
         self.last_hide = Some(Instant::now());
         destroy_layer_surface(SurfaceId::RESERVED)
     }
+}
+
+/// Re-apply our blur after libcosmic's own blur commands for this update.
+fn reapply_blur_later() -> Task<Message> {
+    Task::future(async {
+        tokio::time::sleep(Duration::from_millis(120)).await;
+        cosmic::Action::App(Message::ReapplyBlur)
+    })
 }
 
 impl cosmic::Application for AppGrid {
@@ -224,13 +253,20 @@ impl cosmic::Application for AppGrid {
             }
             Message::Hide => return self.hide(),
             Message::Noop => {}
+            // libcosmic answers this event by disabling blur on surfaces that
+            // opted out of its auto blur (ours); re-apply ours after it.
+            Message::BlurEnabled => return reapply_blur_later(),
+            Message::ReapplyBlur if self.state == State::Visible => return self.blur_task(self.frosted()),
+            Message::ReapplyBlur => {}
             Message::Opened(size, id) if id == SurfaceId::RESERVED => {
                 if self.state == State::WaitingToBeShown {
                     self.state = State::Visible;
                 }
                 self.size = size;
+                // padding and blur go out together so they land in the same commit
                 return Task::batch([
                     set_padding::<()>(SurfaceId::RESERVED, self.padding()).discard(),
+                    self.blur_task(self.frosted()),
                     text_input::focus(SEARCH_ID.clone()),
                 ]);
             }
@@ -250,6 +286,13 @@ impl cosmic::Application for AppGrid {
             }
         }
         Task::none()
+    }
+
+    /// Theme or Frosted glass setting changed: follow it live. libcosmic
+    /// sends its own (disabling) blur commands for our surface right after
+    /// this hook, so ours is re-applied once those have run.
+    fn system_theme_update(&mut self, _keys: &[&'static str], _theme: &cosmic::cosmic_theme::Theme) -> Task<Message> {
+        if self.state == State::Visible { reapply_blur_later() } else { Task::none() }
     }
 
     fn dbus_activation(&mut self, msg: dbus_activation::Message) -> Task<Message> {
@@ -301,6 +344,9 @@ impl cosmic::Application for AppGrid {
             listen_with(|event, status, id| match event {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::Layer(e, _, id))) => {
                     Some(Message::Layer(e, id))
+                }
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(wayland::Event::BlurEnabled)) => {
+                    Some(Message::BlurEnabled)
                 }
                 cosmic::iced::Event::Window(WindowEvent::Opened { size, .. }) => Some(Message::Opened(size, id)),
                 cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed { key, modifiers, .. }) => {
