@@ -24,6 +24,19 @@ use cosmic::Element;
 
 const ICON: &str = "view-app-grid-symbolic";
 
+/// Run `cosmic-appgrid` (toggles the centered grid) and reap it in the
+/// background so no zombie processes pile up in the panel applet.
+fn toggle_centered_grid() {
+    match std::process::Command::new("cosmic-appgrid").spawn() {
+        Ok(mut child) => {
+            std::thread::spawn(move || {
+                let _ = child.wait();
+            });
+        }
+        Err(e) => log::error!("failed to start cosmic-appgrid: {e}"),
+    }
+}
+
 #[derive(Debug, Clone)]
 enum Message {
     Pressed(Rectangle),
@@ -74,10 +87,18 @@ impl Applet {
                 s
             },
             Some(Box::new(|state: &Applet| {
+                let (w, h) = state.grid.panel_size();
                 let content = container(state.grid.view().map(Message::Grid))
-                    .width(Length::Fill)
-                    .height(Length::Fill);
-                Element::from(state.core.applet.popup_container(content)).map(cosmic::Action::App)
+                    .width(Length::Fixed(w))
+                    .height(Length::Fixed(h));
+                // popup_container defaults to a fixed 360 px applet width; the
+                // grid needs its own size
+                let popup = state
+                    .core
+                    .applet
+                    .popup_container(content)
+                    .limits(Limits::NONE.min_width(w).max_width(w).min_height(h).max_height(h));
+                Element::from(popup).map(cosmic::Action::App)
             })),
         )));
         Task::batch([open, text_input::focus(SEARCH_ID.clone())])
@@ -121,11 +142,7 @@ impl cosmic::Application for Applet {
                     return self.close_popup();
                 }
                 match self.config.position {
-                    Position::Centered => {
-                        if let Err(e) = std::process::Command::new("cosmic-appgrid").spawn() {
-                            log::error!("failed to start cosmic-appgrid: {e}");
-                        }
-                    }
+                    Position::Centered => toggle_centered_grid(),
                     Position::Panel => return self.open_popup(anchor),
                 }
             }
@@ -145,7 +162,7 @@ impl cosmic::Application for Applet {
                     self.config.save_position(self.helper.as_ref(), Position::Centered);
                     let close = self.close_popup();
                     // open the centered grid right away so the switch feels instant
-                    let _ = std::process::Command::new("cosmic-appgrid").spawn();
+                    toggle_centered_grid();
                     return close;
                 }
                 None => {}
