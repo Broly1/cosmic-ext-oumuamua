@@ -23,27 +23,25 @@ pub enum Position {
 #[version = 1]
 pub struct AppGridConfig {
     pub position: Position,
-    /// Grid size of one page in centered mode.
+    /// Icons per row.
     pub columns: u16,
+    /// Rows visible at once (the rest scrolls).
     pub rows: u16,
-    /// Grid size of one page in panel mode (smaller popup).
-    pub panel_columns: u16,
-    pub panel_rows: u16,
     pub icon_size: u16,
-    /// Desktop-entry IDs pinned to the start of the grid.
-    pub favorites: Vec<String>,
+    /// Desktop-entry IDs of recently launched apps, most recent first.
+    pub recent: Vec<String>,
 }
+
+const MAX_RECENT: usize = 24;
 
 impl Default for AppGridConfig {
     fn default() -> Self {
         Self {
             position: Position::Centered,
-            columns: 7,
+            columns: 5,
             rows: 4,
-            panel_columns: 6,
-            panel_rows: 4,
-            icon_size: 64,
-            favorites: Vec::new(),
+            icon_size: 52,
+            recent: Vec::new(),
         }
     }
 }
@@ -69,19 +67,26 @@ impl AppGridConfig {
         (helper, config)
     }
 
-    pub fn toggle_favorite(&mut self, helper: Option<&cosmic_config::Config>, id: &str) {
-        let mut favs = self.favorites.clone();
-        if let Some(i) = favs.iter().position(|f| f == id) {
-            favs.remove(i);
-        } else {
-            favs.push(id.to_string());
-        }
+    /// Move `id` to the front of the recently-used list and save it.
+    pub fn record_launch(&mut self, helper: Option<&cosmic_config::Config>, id: &str) {
+        let mut recent = self.recent.clone();
+        recent.retain(|r| r != id);
+        recent.insert(0, id.to_string());
+        recent.truncate(MAX_RECENT);
+        self.save_recent(helper, recent);
+    }
+
+    pub fn clear_recent(&mut self, helper: Option<&cosmic_config::Config>) {
+        self.save_recent(helper, Vec::new());
+    }
+
+    fn save_recent(&mut self, helper: Option<&cosmic_config::Config>, recent: Vec<String>) {
         if let Some(h) = helper {
-            if let Err(e) = self.set_favorites(h, favs.clone()) {
-                log::error!("failed to save favorites: {e:?}");
+            if let Err(e) = self.set_recent(h, recent.clone()) {
+                log::error!("failed to save recent apps: {e:?}");
             }
         }
-        self.favorites = favs;
+        self.recent = recent;
     }
 
     pub fn save_position(&mut self, helper: Option<&cosmic_config::Config>, position: Position) {

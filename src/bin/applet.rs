@@ -105,6 +105,8 @@ impl Applet {
     }
 
     fn launch(&mut self, app: Arc<App>) -> Task<Message> {
+        self.config.record_launch(self.helper.as_ref(), app.id());
+        self.grid.apply_config(&self.config);
         tokio::spawn(appgrid::apps::launch(app, None));
         self.close_popup()
     }
@@ -154,9 +156,12 @@ impl cosmic::Application for Applet {
             Message::Close => return self.close_popup(),
             Message::Grid(msg) => match self.grid.update(msg) {
                 Some(grid::Event::Launch(app)) => return self.launch(app),
-                Some(grid::Event::ToggleFavorite(id)) => {
-                    self.config.toggle_favorite(self.helper.as_ref(), &id);
+                Some(grid::Event::ClearRecent) => {
+                    self.config.clear_recent(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
+                }
+                Some(grid::Event::Task(task)) => {
+                    return task.map(|m| cosmic::Action::App(Message::Grid(m)));
                 }
                 Some(grid::Event::TogglePosition) => {
                     self.config.save_position(self.helper.as_ref(), Position::Centered);
@@ -218,8 +223,8 @@ impl cosmic::Application for Applet {
                         Key::Named(Named::ArrowDown) => Some(Message::Grid(grid::Msg::Move(0, 1))),
                         Key::Named(Named::ArrowLeft) if ignored => Some(Message::Grid(grid::Msg::Move(-1, 0))),
                         Key::Named(Named::ArrowRight) if ignored => Some(Message::Grid(grid::Msg::Move(1, 0))),
-                        Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::NextPage)),
-                        Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PrevPage)),
+                        Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
+                        Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
                         _ => None,
                     }
                 }

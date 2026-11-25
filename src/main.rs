@@ -198,9 +198,12 @@ impl cosmic::Application for AppGrid {
                     return request_token(Some(Self::APP_ID.to_string()), Some(SurfaceId::RESERVED))
                         .map(move |token| cosmic::Action::App(Message::Launch(app.clone(), token)));
                 }
-                Some(grid::Event::ToggleFavorite(id)) => {
-                    self.config.toggle_favorite(self.helper.as_ref(), &id);
+                Some(grid::Event::ClearRecent) => {
+                    self.config.clear_recent(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
+                }
+                Some(grid::Event::Task(task)) => {
+                    return task.map(|m| cosmic::Action::App(Message::Grid(m)));
                 }
                 Some(grid::Event::TogglePosition) => {
                     // the panel applet watches this setting and takes over
@@ -210,6 +213,8 @@ impl cosmic::Application for AppGrid {
                 None => {}
             },
             Message::Launch(app, token) => {
+                self.config.record_launch(self.helper.as_ref(), app.id());
+                self.grid.apply_config(&self.config);
                 tokio::spawn(appgrid::apps::launch(app, token));
                 return self.hide();
             }
@@ -304,8 +309,8 @@ impl cosmic::Application for AppGrid {
                         Key::Named(Named::ArrowRight) if ignored => Some(Message::Grid(grid::Msg::Move(1, 0))),
                         Key::Named(Named::Tab) if modifiers.shift() => Some(Message::Grid(grid::Msg::Move(-1, 0))),
                         Key::Named(Named::Tab) => Some(Message::Grid(grid::Msg::Move(1, 0))),
-                        Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::NextPage)),
-                        Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PrevPage)),
+                        Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
+                        Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
                         _ => None,
                     }
                 }

@@ -6,10 +6,79 @@ use std::sync::Arc;
 use cosmic::desktop::{DesktopEntryData, IconSourceExt};
 use cosmic::widget::icon;
 
+/// macOS-style app categories, mapped from freedesktop.org main/additional
+/// categories in the desktop entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Category {
+    Productivity,
+    Utilities,
+    Social,
+    Creativity,
+    Entertainment,
+    Other,
+}
+
+impl Category {
+    pub const ALL: [Category; 6] = [
+        Category::Productivity,
+        Category::Utilities,
+        Category::Social,
+        Category::Creativity,
+        Category::Entertainment,
+        Category::Other,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Category::Productivity => "Productivity & Finance",
+            Category::Utilities => "Utilities",
+            Category::Social => "Social",
+            Category::Creativity => "Creativity",
+            Category::Entertainment => "Entertainment",
+            Category::Other => "Other",
+        }
+    }
+
+    /// Checked in this order, so e.g. an Office;Graphics viewer counts as
+    /// Productivity and AudioVideoEditing as Creativity, not Entertainment.
+    fn from_freedesktop(cats: &[String]) -> Self {
+        const RULES: &[(Category, &[&str])] = &[
+            (Category::Productivity, &[
+                "Office", "Finance", "Calendar", "ContactManagement", "ProjectManagement",
+                "WordProcessor", "Spreadsheet", "Presentation", "Dictionary", "Chart", "Database",
+            ]),
+            (Category::Creativity, &[
+                "Graphics", "2DGraphics", "3DGraphics", "RasterGraphics", "VectorGraphics",
+                "Photography", "Publishing", "AudioVideoEditing", "Art", "Development", "IDE",
+                "WebDevelopment", "Building", "Debugger",
+            ]),
+            (Category::Social, &[
+                "Chat", "InstantMessaging", "IRCClient", "Email", "Telephony", "VideoConference",
+                "News", "Feed", "WebBrowser", "Network",
+            ]),
+            (Category::Entertainment, &[
+                "Game", "AudioVideo", "Audio", "Video", "Player", "Music", "TV", "Recorder",
+            ]),
+            (Category::Utilities, &[
+                "System", "Settings", "Utility", "Accessibility", "FileManager", "TerminalEmulator",
+                "Monitor", "Archiving", "Compression", "FileTools", "Security", "PackageManager",
+                "HardwareSettings", "Filesystem", "Core", "TextEditor", "Calculator", "Clock",
+            ]),
+        ];
+        for (cat, names) in RULES {
+            if cats.iter().any(|c| names.contains(&c.as_str())) {
+                return *cat;
+            }
+        }
+        Category::Other
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct App {
     pub entry: DesktopEntryData,
     pub icon: icon::Handle,
+    pub category: Category,
     /// Lower-cased name, used for matching.
     name_lc: String,
     /// Lower-cased id + categories, used as a weaker match.
@@ -19,9 +88,10 @@ pub struct App {
 impl App {
     fn new(entry: DesktopEntryData) -> Self {
         let icon = entry.icon.as_cosmic_icon();
+        let category = Category::from_freedesktop(&entry.categories);
         let name_lc = entry.name.to_lowercase();
         let extra_lc = format!("{} {}", entry.id, entry.categories.join(" ")).to_lowercase();
-        Self { entry, icon, name_lc, extra_lc }
+        Self { entry, icon, category, name_lc, extra_lc }
     }
 
     pub fn id(&self) -> &str {
@@ -74,8 +144,8 @@ fn locales() -> Vec<String> {
     v
 }
 
-/// Load visible applications, favorites first (in their saved order), then A–Z.
-pub fn load(favorites: &[String]) -> Vec<Arc<App>> {
+/// Load visible applications, sorted A–Z.
+pub fn load() -> Vec<Arc<App>> {
     let locales = locales();
     let desktop = std::env::var("XDG_CURRENT_DESKTOP").ok();
     let mut apps: Vec<Arc<App>> =
@@ -83,21 +153,9 @@ pub fn load(favorites: &[String]) -> Vec<Arc<App>> {
             .filter(|d| d.exec.is_some())
             .map(|d| Arc::new(App::new(d)))
             .collect();
-    sort(&mut apps, favorites);
+    apps.sort_by(|a, b| a.name_lc.cmp(&b.name_lc));
+    apps.dedup_by(|a, b| a.entry.id == b.entry.id);
     apps
-}
-
-pub fn sort(apps: &mut [Arc<App>], favorites: &[String]) {
-    apps.sort_by(|a, b| {
-        let fa = favorites.iter().position(|f| f == a.id());
-        let fb = favorites.iter().position(|f| f == b.id());
-        match (fa, fb) {
-            (Some(x), Some(y)) => x.cmp(&y),
-            (Some(_), None) => std::cmp::Ordering::Less,
-            (None, Some(_)) => std::cmp::Ordering::Greater,
-            (None, None) => a.name_lc.cmp(&b.name_lc),
-        }
-    });
 }
 
 /// Launch an application detached from this process (double fork + setsid),
