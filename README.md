@@ -55,6 +55,18 @@ Then add *App Grid* to your panel or dock, or run `cosmic-ext-appgrid`.
 - `just check` runs clippy on the project to check for linter warnings
 - `just check-json` can be used by IDEs that support LSP
 
+## Open it with the Super (Windows) key
+
+COSMIC binds the Super key on its own to its launcher. To open App Grid instead, add this to `~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom` (create the file if it doesn't exist; keep any other entries already in it):
+
+```ron
+{
+    (modifiers: [Super]): Spawn("cosmic-ext-appgrid"),
+}
+```
+
+Pressing Super again closes the grid. COSMIC's launcher stays available on Super+/. You can also add a custom shortcut for `cosmic-ext-appgrid` in *Settings → Keyboard → Shortcuts*.
+
 ## Translators
 
 [Fluent][fluent] is used for localization of the software. Fluent's translation files are found in the [i18n directory](./i18n). New translations may copy the [English (en) localization](./i18n/en) of the project, rename `en` to the desired [ISO 639-1 language code][iso-codes], and then translations can be provided for each [message identifier][fluent-guide]. If no translation is necessary, the message may be omitted.
