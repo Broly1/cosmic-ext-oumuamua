@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! Shared code for `cosmic-ext-appgrid` (centered launcher) and
-//! `cosmic-ext-appgrid-applet` (panel button / panel popup).
+//! Shared code for `cosmic-ext-oumuamua` (centered launcher) and
+//! `cosmic-ext-oumuamua-applet` (panel button / panel popup).
 
 pub mod apps;
 pub mod config;
@@ -9,10 +9,10 @@ pub mod i18n;
 
 /// Colored launcher icon (porthole, planet, rocket).
 pub const ICON_COLOR_SVG: &[u8] =
-    include_bytes!("../resources/icons/hicolor/scalable/apps/io.github.broly1.AppGrid.svg");
+    include_bytes!("../resources/icons/hicolor/scalable/apps/io.github.broly1.Oumuamua.svg");
 /// Monochrome variant, tinted by the theme like other panel icons.
 pub const ICON_SYMBOLIC_SVG: &[u8] = include_bytes!(
-    "../resources/icons/hicolor/symbolic/apps/io.github.broly1.AppGrid-symbolic.svg"
+    "../resources/icons/hicolor/symbolic/apps/io.github.broly1.Oumuamua-symbolic.svg"
 );
 
 pub fn launcher_icon(symbolic: bool) -> cosmic::widget::icon::Handle {

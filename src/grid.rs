@@ -24,10 +24,10 @@ use cosmic::widget::{self, button, container, divider, icon, popover, search_inp
 use cosmic::{Element, Task, theme};
 
 use crate::apps::{App, Category};
-use crate::config::{AppGridConfig, Position};
+use crate::config::{OumuamuaConfig, Position};
 
-pub static SEARCH_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("appgrid-search"));
-static SCROLL_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("appgrid-scroll"));
+pub static SEARCH_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("oumuamua-search"));
+static SCROLL_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("oumuamua-scroll"));
 
 /// Extra width/height around the icon inside one cell (label + padding).
 const CELL_PAD_W: f32 = 52.0;
@@ -114,7 +114,7 @@ impl Grid {
         }
     }
 
-    pub fn apply_config(&mut self, config: &AppGridConfig) {
+    pub fn apply_config(&mut self, config: &OumuamuaConfig) {
         self.columns = config.columns.clamp(3, 10) as usize;
         self.visible_rows = config.rows.clamp(2, 8) as usize;
         self.icon_size = config.icon_size.clamp(32, 128);

@@ -1,7 +1,7 @@
-name := 'cosmic-ext-appgrid'
-applet-name := 'cosmic-ext-appgrid-applet'
-appid := 'io.github.broly1.AppGrid'
-applet-appid := 'io.github.broly1.AppGridApplet'
+name := 'cosmic-ext-oumuamua'
+applet-name := 'cosmic-ext-oumuamua-applet'
+appid := 'io.github.broly1.Oumuamua'
+applet-appid := 'io.github.broly1.OumuamuaApplet'
 
 rootdir := ''
 prefix := '/usr'

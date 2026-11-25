@@ -1,22 +1,22 @@
 [package]
-name = "cosmic-ext-appgrid"
+name = "cosmic-ext-oumuamua"
 version = "0.1.0"
 edition = "2024"
 license = "GPL-3.0-only"
 description = "A frosted-glass application grid launcher for the COSMIC™ desktop"
-repository = "https://github.com/Broly1/cosmic-ext-appgrid"
+repository = "https://github.com/Broly1/cosmic-ext-oumuamua"
 rust-version = "1.90"
 
 [lib]
-name = "appgrid"
+name = "oumuamua"
 path = "src/lib.rs"
 
 [[bin]]
-name = "cosmic-ext-appgrid"
+name = "cosmic-ext-oumuamua"
 path = "src/main.rs"
 
 [[bin]]
-name = "cosmic-ext-appgrid-applet"
+name = "cosmic-ext-oumuamua-applet"
 path = "src/bin/applet.rs"
 
 [build-dependencies]

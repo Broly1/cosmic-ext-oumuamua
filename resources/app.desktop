@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=App Grid
+Name=Oumuamua
 Comment=Frosted-glass application grid launcher for the COSMIC™ desktop
 Type=Application
-Icon=io.github.broly1.AppGrid
-Exec=cosmic-ext-appgrid
+Icon=io.github.broly1.Oumuamua
+Exec=cosmic-ext-oumuamua
 Terminal=false
 StartupNotify=false
 NoDisplay=true

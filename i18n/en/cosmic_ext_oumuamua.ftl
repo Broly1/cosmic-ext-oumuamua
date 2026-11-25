@@ -1,8 +1,8 @@
 # Desktop entries and metainfo (expanded by build.rs)
-app-title = App Grid
+app-title = Oumuamua
 app-comment = Frosted-glass application grid launcher for the COSMIC™ desktop
 app-keywords = Launcher;Applications;Grid;Menu;Start;
-applet-title = App Grid
+applet-title = Oumuamua
 applet-comment = Open the application grid, centered on screen or attached to the panel
 applet-keywords = Applet;Launcher;Applications;Grid;Menu;Start;
 

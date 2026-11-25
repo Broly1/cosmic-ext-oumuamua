@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=App Grid
+Name=Oumuamua
 Comment=Open the application grid, centered on screen or attached to the panel
 Type=Application
-Icon=io.github.broly1.AppGrid
-Exec=cosmic-ext-appgrid-applet
+Icon=io.github.broly1.Oumuamua
+Exec=cosmic-ext-oumuamua-applet
 Terminal=false
 StartupNotify=true
 NoDisplay=true

@@ -1078,7 +1078,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "cosmic-ext-appgrid"
+name = "cosmic-ext-oumuamua"
 version = "0.1.0"
 dependencies = [
  "clap",

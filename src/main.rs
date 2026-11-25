@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! `cosmic-ext-appgrid`: the centered frosted-glass app grid.
+//! `cosmic-ext-oumuamua`: the centered frosted-glass app grid.
 //!
 //! Runs as a single instance. Starting it again (from the panel button or a
 //! keyboard shortcut) toggles the grid open/closed over D-Bus.
@@ -14,8 +14,8 @@
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 
-use appgrid::config::{AppGridConfig, Position};
-use appgrid::grid::{self, Grid, SEARCH_ID};
+use oumuamua::config::{OumuamuaConfig, Position};
+use oumuamua::grid::{self, Grid, SEARCH_ID};
 use clap::Parser;
 use cosmic::app::{Core, CosmicFlags, Settings, Task};
 use cosmic::cctk::sctk::shell::wlr_layer::{Anchor, KeyboardInteractivity, Layer};
@@ -91,14 +91,14 @@ enum Message {
     ReapplyBlur,
     Opened(Size, SurfaceId),
     Layer(wayland::LayerEvent, SurfaceId),
-    Config(AppGridConfig),
-    Launch(std::sync::Arc<appgrid::apps::App>, Option<String>),
+    Config(OumuamuaConfig),
+    Launch(std::sync::Arc<oumuamua::apps::App>, Option<String>),
 }
 
-struct AppGrid {
+struct Oumuamua {
     core: Core,
     helper: Option<cosmic_config::Config>,
-    config: AppGridConfig,
+    config: OumuamuaConfig,
     grid: Grid,
     state: State,
     /// Output size reported when the full-screen surface opened.
@@ -106,7 +106,7 @@ struct AppGrid {
     last_hide: Option<Instant>,
 }
 
-impl AppGrid {
+impl Oumuamua {
     #[allow(
         clippy::cast_possible_truncation,
         clippy::cast_sign_loss,
@@ -170,21 +170,21 @@ impl AppGrid {
         self.state = State::WaitingToBeShown;
         self.grid.reset();
         cosmic::surface::surface_task(app_layer_shell(
-            |app: &AppGrid| LiveSettings {
+            |app: &Oumuamua| LiveSettings {
                 padding: Some(app.padding()),
-                corners: Some(appgrid::panel_corners(app.core.system_theme().cosmic())),
+                corners: Some(oumuamua::panel_corners(app.core.system_theme().cosmic())),
                 // Not None: libcosmic would blur the whole surface before the
                 // padding exists, flashing the entire screen. Blur is sent
                 // together with the padding once the surface is open.
                 blur: Some(false),
             },
-            |_: &mut AppGrid| SctkLayerSurfaceSettings {
+            |_: &mut Oumuamua| SctkLayerSurfaceSettings {
                 id: SurfaceId::RESERVED,
                 layer: Layer::Overlay,
                 keyboard_interactivity: KeyboardInteractivity::Exclusive,
                 anchor: Anchor::all(),
                 exclusive_zone: -1,
-                namespace: "appgrid".into(),
+                namespace: "oumuamua".into(),
                 size: Some((None, None)),
                 ..Default::default()
             },
@@ -210,11 +210,11 @@ fn reapply_blur_later() -> Task<Message> {
     })
 }
 
-impl cosmic::Application for AppGrid {
+impl cosmic::Application for Oumuamua {
     type Executor = cosmic::executor::Default;
     type Flags = Args;
     type Message = Message;
-    const APP_ID: &'static str = appgrid::config::APP_ID;
+    const APP_ID: &'static str = oumuamua::config::APP_ID;
 
     fn core(&self) -> &Core {
         &self.core
@@ -227,7 +227,7 @@ impl cosmic::Application for AppGrid {
     fn init(mut core: Core, args: Args) -> (Self, Task<Message>) {
         core.set_keyboard_nav(false);
         core.set_app_type(cosmic::core::AppType::System);
-        let (helper, config) = AppGridConfig::load();
+        let (helper, config) = OumuamuaConfig::load();
         let mut grid = Grid::new(Position::Centered);
         grid.apply_config(&config);
         let mut app = Self {
@@ -279,7 +279,7 @@ impl cosmic::Application for AppGrid {
             Message::Launch(app, token) => {
                 self.config.record_launch(self.helper.as_ref(), app.id());
                 self.grid.apply_config(&self.config);
-                tokio::spawn(appgrid::apps::launch(app, token));
+                tokio::spawn(oumuamua::apps::launch(app, token));
                 return self.hide();
             }
             Message::Hide => return self.hide(),
@@ -367,7 +367,7 @@ impl cosmic::Application for AppGrid {
         let panel = container(self.grid.view().map(Message::Grid))
             .width(Length::Fixed(w))
             .height(Length::Fixed(h))
-            .class(cosmic::theme::Container::custom(appgrid::glass_style));
+            .class(cosmic::theme::Container::custom(oumuamua::glass_style));
         // The surface covers the whole output (it ignores panel exclusive
         // zones), so the panel is placed at the exact center of the screen.
         // Clicking anywhere outside it closes the grid.
@@ -430,7 +430,7 @@ impl cosmic::Application for AppGrid {
                 _ => None,
             }),
             self.core
-                .watch_config::<AppGridConfig>(appgrid::config::APP_ID)
+                .watch_config::<OumuamuaConfig>(oumuamua::config::APP_ID)
                 .map(|update| Message::Config(update.config)),
         ])
     }
@@ -438,12 +438,12 @@ impl cosmic::Application for AppGrid {
 
 fn main() -> cosmic::iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
-    appgrid::i18n::init_from_desktop();
+    oumuamua::i18n::init_from_desktop();
     let args = Args::parse();
     let settings = Settings::default()
         .antialiasing(true)
         .client_decorations(true)
         .no_main_window(true)
         .exit_on_close(false);
-    cosmic::app::run_single_instance::<AppGrid>(settings, args)
+    cosmic::app::run_single_instance::<Oumuamua>(settings, args)
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
-//! `cosmic-ext-appgrid-applet`: the panel button.
+//! `cosmic-ext-oumuamua-applet`: the panel button.
 //!
-//! * `Position::Centered` (default): clicking runs `cosmic-ext-appgrid`, which
+//! * `Position::Centered` (default): clicking runs `cosmic-ext-oumuamua`, which
 //!   toggles the centered grid (single instance over D-Bus).
 //! * `Position::Panel`: clicking opens the same grid as a popup attached to the
 //!   panel button, like the Windows 11 Start menu. As an applet popup it
@@ -10,9 +10,9 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use appgrid::apps::App;
-use appgrid::config::{AppGridConfig, Position};
-use appgrid::grid::{self, Grid, SEARCH_ID};
+use oumuamua::apps::App;
+use oumuamua::config::{OumuamuaConfig, Position};
+use oumuamua::grid::{self, Grid, SEARCH_ID};
 use cosmic::Element;
 use cosmic::app::{Core, Task};
 use cosmic::applet::token::subscription::{
@@ -27,16 +27,16 @@ use cosmic::iced::{Length, Limits, Rectangle, Subscription};
 use cosmic::surface::action::{app_popup, destroy_popup};
 use cosmic::widget::{container, text_input};
 
-/// Run `cosmic-ext-appgrid` (toggles the centered grid) and reap it in the
+/// Run `cosmic-ext-oumuamua` (toggles the centered grid) and reap it in the
 /// background so no zombie processes pile up in the panel applet.
 fn toggle_centered_grid() {
-    match std::process::Command::new("cosmic-ext-appgrid").spawn() {
+    match std::process::Command::new("cosmic-ext-oumuamua").spawn() {
         Ok(mut child) => {
             std::thread::spawn(move || {
                 let _ = child.wait();
             });
         }
-        Err(e) => log::error!("failed to start cosmic-ext-appgrid: {e}"),
+        Err(e) => log::error!("failed to start cosmic-ext-oumuamua: {e}"),
     }
 }
 
@@ -46,7 +46,7 @@ enum Message {
     PopupClosed(Id),
     Grid(grid::Msg),
     Close,
-    Config(AppGridConfig),
+    Config(OumuamuaConfig),
     Surface(cosmic::surface::Action<Message>),
     Token(TokenUpdate),
 }
@@ -54,7 +54,7 @@ enum Message {
 struct Applet {
     core: Core,
     helper: Option<cosmic_config::Config>,
-    config: AppGridConfig,
+    config: OumuamuaConfig,
     grid: Grid,
     popup: Option<Id>,
     /// Requests Wayland activation tokens so launched apps get focus.
@@ -140,11 +140,11 @@ impl Applet {
                 {
                     self.pending_launch.insert(id, app);
                 } else {
-                    tokio::spawn(appgrid::apps::launch(app, None));
+                    tokio::spawn(oumuamua::apps::launch(app, None));
                 }
             }
             None => {
-                tokio::spawn(appgrid::apps::launch(app, None));
+                tokio::spawn(oumuamua::apps::launch(app, None));
             }
         }
         self.close_popup()
@@ -155,7 +155,7 @@ impl cosmic::Application for Applet {
     type Executor = cosmic::SingleThreadExecutor;
     type Flags = ();
     type Message = Message;
-    const APP_ID: &'static str = "io.github.broly1.AppGridApplet";
+    const APP_ID: &'static str = "io.github.broly1.OumuamuaApplet";
 
     fn core(&self) -> &Core {
         &self.core
@@ -166,7 +166,7 @@ impl cosmic::Application for Applet {
     }
 
     fn init(core: Core, (): ()) -> (Self, Task<Message>) {
-        let (helper, config) = AppGridConfig::load();
+        let (helper, config) = OumuamuaConfig::load();
         let mut grid = Grid::new(Position::Panel);
         grid.apply_config(&config);
         (
@@ -237,7 +237,7 @@ impl cosmic::Application for Applet {
                 TokenUpdate::Finished => self.token_tx = None,
                 TokenUpdate::ActivationToken { token, exec } => {
                     if let Some(app) = self.pending_launch.remove(&exec) {
-                        tokio::spawn(appgrid::apps::launch(app, token));
+                        tokio::spawn(oumuamua::apps::launch(app, token));
                     }
                 }
             },
@@ -249,7 +249,7 @@ impl cosmic::Application for Applet {
         let btn = self
             .core
             .applet
-            .icon_button_from_handle(appgrid::launcher_icon(self.config.symbolic_icon))
+            .icon_button_from_handle(oumuamua::launcher_icon(self.config.symbolic_icon))
             .on_press_with_rectangle(|offset, bounds| {
                 Message::Pressed(Rectangle {
                     x: bounds.x - offset.x,
@@ -260,7 +260,7 @@ impl cosmic::Application for Applet {
             });
         Element::from(self.core.applet.applet_tooltip::<Message>(
             btn,
-            appgrid::fl!("applications"),
+            oumuamua::fl!("applications"),
             self.popup.is_some(),
             Message::Surface,
             None,
@@ -275,7 +275,7 @@ impl cosmic::Application for Applet {
         let mut subs = vec![
             activation_token_subscription(0).map(Message::Token),
             self.core
-                .watch_config::<AppGridConfig>(appgrid::config::APP_ID)
+                .watch_config::<OumuamuaConfig>(oumuamua::config::APP_ID)
                 .map(|u| Message::Config(u.config)),
         ];
         if self.popup.is_some() {
@@ -313,6 +313,6 @@ impl cosmic::Application for Applet {
 
 fn main() -> cosmic::iced::Result {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
-    appgrid::i18n::init_from_desktop();
+    oumuamua::i18n::init_from_desktop();
     cosmic::applet::run::<Applet>(())
 }

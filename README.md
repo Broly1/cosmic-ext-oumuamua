@@ -1,6 +1,12 @@
-# App Grid for the COSMIC™ desktop
+# Oumuamua for the COSMIC™ desktop
 
 A frosted-glass application grid launcher for the [COSMIC™](https://system76.com/cosmic) desktop, written in Rust with [libcosmic](https://github.com/pop-os/libcosmic). It's inspired by [Plasma 6 AppGrid](https://github.com/xarbit/plasma6-applet-appgrid).
+
+![Oumuamua centered on screen with a top panel and dock](screenshots/centered-top-panel.png)
+
+![Oumuamua centered on screen with a bottom panel](screenshots/centered-bottom-panel.png)
+
+![Oumuamua attached to its panel button](screenshots/attached-to-panel.png)
 
 This is a community project. It is not affiliated with or endorsed by System76.
 
@@ -18,10 +24,10 @@ This is a community project. It is not affiliated with or endorsed by System76.
 
 | Binary | What it is |
 |---|---|
-| `cosmic-ext-appgrid` | The centered launcher. It runs as a single instance: running it again toggles it open or closed. Bind it to a key in *Settings → Keyboard → Custom shortcuts*. |
-| `cosmic-ext-appgrid-applet` | The panel button, listed as *App Grid* in *Settings → Desktop → Panel → Applets*. |
+| `cosmic-ext-oumuamua` | The centered launcher. It runs as a single instance: running it again toggles it open or closed. Bind it to a key in *Settings → Keyboard → Custom shortcuts*. |
+| `cosmic-ext-oumuamua-applet` | The panel button, listed as *Oumuamua* in *Settings → Desktop → Panel → Applets*. |
 
-Settings are stored with cosmic-config at `~/.config/cosmic/io.github.broly1.AppGrid/v1/`:
+Settings are stored with cosmic-config at `~/.config/cosmic/io.github.broly1.Oumuamua/v1/`:
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -45,7 +51,7 @@ just
 sudo just install
 ```
 
-Then add *App Grid* to your panel or dock, or run `cosmic-ext-appgrid`.
+Then add *Oumuamua* to your panel or dock, or run `cosmic-ext-oumuamua`.
 
 - `just` builds the application with the default `just build-release` recipe
 - `just run` builds and runs the launcher
@@ -57,15 +63,15 @@ Then add *App Grid* to your panel or dock, or run `cosmic-ext-appgrid`.
 
 ## Open it with the Super (Windows) key
 
-COSMIC binds the Super key on its own to its launcher. To open App Grid instead, add this to `~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom` (create the file if it doesn't exist; keep any other entries already in it):
+COSMIC binds the Super key on its own to its launcher. To open Oumuamua instead, add this to `~/.config/cosmic/com.system76.CosmicSettings.Shortcuts/v1/custom` (create the file if it doesn't exist; keep any other entries already in it):
 
 ```ron
 {
-    (modifiers: [Super]): Spawn("cosmic-ext-appgrid"),
+    (modifiers: [Super]): Spawn("cosmic-ext-oumuamua"),
 }
 ```
 
-Pressing Super again closes the grid. COSMIC's launcher stays available on Super+/. You can also add a custom shortcut for `cosmic-ext-appgrid` in *Settings → Keyboard → Shortcuts*.
+Pressing Super again closes the grid. COSMIC's launcher stays available on Super+/. You can also add a custom shortcut for `cosmic-ext-oumuamua` in *Settings → Keyboard → Shortcuts*.
 
 ## Translators
 
@@ -78,7 +84,7 @@ If packaging for a Linux distribution, vendor dependencies locally with the `ven
 ```sh
 just vendor
 just build-vendored
-just rootdir=debian/cosmic-ext-appgrid prefix=/usr install
+just rootdir=debian/cosmic-ext-oumuamua prefix=/usr install
 ```
 
 It is recommended to build a source tarball with the vendored dependencies, which can typically be done by running `just vendor` on the host system before it enters the build environment.

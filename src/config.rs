@@ -7,7 +7,7 @@
 use cosmic::cosmic_config::{self, CosmicConfigEntry, cosmic_config_derive::CosmicConfigEntry};
 use serde::{Deserialize, Serialize};
 
-pub const APP_ID: &str = "io.github.broly1.AppGrid";
+pub const APP_ID: &str = "io.github.broly1.Oumuamua";
 
 /// Where the grid opens.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,7 +21,7 @@ pub enum Position {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, CosmicConfigEntry)]
 #[version = 1]
-pub struct AppGridConfig {
+pub struct OumuamuaConfig {
     pub position: Position,
     /// Icons per row.
     pub columns: u16,
@@ -36,7 +36,7 @@ pub struct AppGridConfig {
 
 const MAX_RECENT: usize = 24;
 
-impl Default for AppGridConfig {
+impl Default for OumuamuaConfig {
     fn default() -> Self {
         Self {
             position: Position::Centered,
@@ -49,7 +49,7 @@ impl Default for AppGridConfig {
     }
 }
 
-impl AppGridConfig {
+impl OumuamuaConfig {
     #[must_use]
     pub fn helper() -> Option<cosmic_config::Config> {
         cosmic_config::Config::new(APP_ID, Self::VERSION).ok()
