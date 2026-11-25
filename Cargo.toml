@@ -1,0 +1,53 @@
+[package]
+name = "cosmic-appgrid"
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-only"
+description = "A frosted-glass application grid launcher for the COSMIC desktop"
+rust-version = "1.90"
+
+[lib]
+name = "appgrid"
+path = "src/lib.rs"
+
+[[bin]]
+name = "cosmic-appgrid"
+path = "src/main.rs"
+
+[[bin]]
+name = "cosmic-appgrid-applet"
+path = "src/bin/applet.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+env_logger = "0.11"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt", "sync", "process"] }
+
+# libcosmic is pinned to the revision this was developed and tested against.
+[dependencies.libcosmic]
+git = "https://github.com/pop-os/libcosmic"
+rev = "009fb9d4138f25615122c4ccc42d025472da9cdd"
+default-features = false
+features = [
+    "applet",
+    "dbus-config",
+    "desktop",
+    "multi-window",
+    "single-instance",
+    "tokio",
+    "wayland",
+    "wgpu",
+    "winit",
+]
+
+[dependencies.cosmic-launch]
+git = "https://github.com/pop-os/libcosmic"
+rev = "009fb9d4138f25615122c4ccc42d025472da9cdd"
+default-features = false
+features = ["tokio"]
+
+[profile.release]
+lto = "thin"

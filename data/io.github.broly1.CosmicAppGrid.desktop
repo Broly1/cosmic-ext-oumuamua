@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=App Grid
+Comment=Frosted-glass application grid launcher for COSMIC
+Type=Application
+Exec=cosmic-appgrid
+Icon=view-app-grid-symbolic
+Terminal=false
+Categories=COSMIC;Utility;
+Keywords=Launcher;Applications;Grid;Menu;
+NoDisplay=true
+StartupNotify=false
