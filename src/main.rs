@@ -91,6 +91,9 @@ enum Message {
     ReapplyBlur,
     Opened(Size, SurfaceId),
     Layer(wayland::LayerEvent, SurfaceId),
+    /// An output appeared or changed: recreate the keep-alive surface if
+    /// the compositor closed it.
+    Output,
     Config(OumuamuaConfig),
     Launch(std::sync::Arc<oumuamua::apps::App>, Option<String>),
 }
@@ -104,6 +107,9 @@ struct Oumuamua {
     /// Output size reported when the full-screen surface opened.
     size: Size,
     last_hide: Option<Instant>,
+    /// The invisible surface that stays open while the grid is hidden
+    /// ([`Self::keep_alive_surface`]); `None` once the compositor closed it.
+    keep_alive: Option<SurfaceId>,
 }
 
 impl Oumuamua {
@@ -192,6 +198,35 @@ impl Oumuamua {
         ))
     }
 
+    /// A 1×1 invisible surface on the bottom layer that is never closed,
+    /// like COSMIC Launcher's "dummy" surface. Without it the grid's surface
+    /// is the app's only one, and destroying it on every close lost about
+    /// 26 KB per open inside the toolkit; with it the loss is gone.
+    fn keep_alive_surface(&mut self) -> Task<Message> {
+        let id = SurfaceId::unique();
+        self.keep_alive = Some(id);
+        cosmic::surface::surface_task(cosmic::surface::action::simple_layer_shell::<Message>(
+            || LiveSettings {
+                padding: None,
+                corners: None,
+                // no blur, even with Frosted glass on
+                blur: Some(false),
+            },
+            move || SctkLayerSurfaceSettings {
+                id,
+                layer: Layer::Bottom,
+                keyboard_interactivity: KeyboardInteractivity::None,
+                input_zone: Some(Vec::new()),
+                anchor: Anchor::TOP,
+                namespace: "oumuamua_keep_alive".into(),
+                size: Some((Some(1), Some(1))),
+                exclusive_zone: -1,
+                ..Default::default()
+            },
+            None::<fn() -> Element<'static, cosmic::Action<Message>>>,
+        ))
+    }
+
     fn hide(&mut self) -> Task<Message> {
         if self.state == State::Hidden {
             return Task::none();
@@ -240,13 +275,15 @@ impl cosmic::Application for Oumuamua {
             state: State::Hidden,
             size: Size::new(1920.0, 1080.0),
             last_hide: None,
+            keep_alive: None,
         };
         // the first launch is itself a request to open
         let task = match args.cmd {
             Some(Cmd::Close) => Task::none(),
             _ => app.show(),
         };
-        (app, task)
+        let keep_alive = app.keep_alive_surface();
+        (app, Task::batch([keep_alive, task]))
     }
 
     fn update(&mut self, message: Message) -> Task<Message> {
@@ -334,6 +371,10 @@ impl cosmic::Application for Oumuamua {
                     text_input::focus(SEARCH_ID.clone()),
                 ]);
             }
+            Message::Layer(wayland::LayerEvent::Done, id) if self.keep_alive == Some(id) => {
+                self.keep_alive = None;
+            }
+            Message::Output if self.keep_alive.is_none() => return self.keep_alive_surface(),
             Message::Layer(ev, id) if id == SurfaceId::RESERVED => match ev {
                 wayland::LayerEvent::Focused => return text_input::focus(SEARCH_ID.clone()),
                 wayland::LayerEvent::Unfocused if self.state == State::Visible => {
@@ -341,7 +382,11 @@ impl cosmic::Application for Oumuamua {
                 }
                 _ => {}
             },
-            Message::Noop | Message::ReapplyBlur | Message::Opened(..) | Message::Layer(..) => {}
+            Message::Noop
+            | Message::ReapplyBlur
+            | Message::Opened(..)
+            | Message::Layer(..)
+            | Message::Output => {}
             Message::Config(config) => {
                 self.config = config;
                 self.grid.apply_config(&self.config);
@@ -391,9 +436,12 @@ impl cosmic::Application for Oumuamua {
         clippy::cast_possible_wrap,
         clippy::cast_precision_loss
     )] // pixel sizes
-    fn view_window(&self, _id: SurfaceId) -> Element<'_, Message> {
+    fn view_window(&self, id: SurfaceId) -> Element<'_, Message> {
         use cosmic::iced::widget::{column, stack};
         use cosmic::widget::space;
+        if self.keep_alive == Some(id) {
+            return space::horizontal().into();
+        }
         let pad = self.padding();
         let w = (self.size.width - 2.0 * pad.left as f32).max(1.0);
         let h = (self.size.height - 2.0 * pad.top as f32).max(1.0);
@@ -429,6 +477,12 @@ impl cosmic::Application for Oumuamua {
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::Layer(e, _, id),
                 )) => Some(Message::Layer(e, id)),
+                cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
+                    wayland::Event::Output(
+                        wayland::OutputEvent::Created(_) | wayland::OutputEvent::InfoUpdate(_),
+                        _,
+                    ),
+                )) => Some(Message::Output),
                 cosmic::iced::Event::PlatformSpecific(PlatformSpecific::Wayland(
                     wayland::Event::BlurEnabled,
                 )) => Some(Message::BlurEnabled),
