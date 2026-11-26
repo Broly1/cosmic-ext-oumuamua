@@ -426,10 +426,10 @@ impl Grid {
         None
     }
 
-    /// Search field and ⋯ menu.
+    /// Search field with the ⋮ menu inside its right end.
     fn header(&self) -> Element<'_, Msg> {
-        let menu_btn = button::icon(icon::from_name("view-more-horizontal-symbolic").size(16))
-            .padding(8)
+        let menu_btn = button::icon(icon::from_name("view-more-symbolic").size(16))
+            .padding(6)
             .on_press(Msg::ToggleMenu);
         let mut menu = popover(menu_btn)
             .position(widget::popover::Position::Bottom)
@@ -500,16 +500,16 @@ impl Grid {
                     .class(theme::Container::Dropdown),
             );
         }
+        // the menu sits in the field's trailing slot so it looks part of it
         let header = row![
             search_input(crate::fl!("search-placeholder"), &self.query)
                 .on_input(Msg::Search)
                 .on_paste(Msg::Search)
                 .on_submit(|_| Msg::Submit)
                 .id(SEARCH_ID.clone())
+                .trailing_icon(container(menu).padding([0, 2]).into())
                 .width(Length::Fill),
-            menu,
         ]
-        .spacing(8)
         .align_y(Alignment::Center)
         .height(Length::Fixed(HEADER_H));
         header.into()
