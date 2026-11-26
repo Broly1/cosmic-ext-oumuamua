@@ -31,8 +31,20 @@ pub static SEARCH_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("o
 static SCROLL_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("oumuamua-scroll"));
 
 /// Extra width/height around the icon inside one cell (label + padding).
-const CELL_PAD_W: f32 = 52.0;
-const CELL_PAD_H: f32 = 44.0;
+// Cell and label metrics follow Plasma's AppGrid (gridmetrics.js and
+// AppIconDelegate.qml): cells about as wide as they are tall, names in the
+// normal font on up to two centred lines, with two lines always reserved so
+// icons stay aligned in every row.
+/// Width beyond the icon (`AppGrid`: three text lines plus two small gaps).
+const CELL_PAD_W: f32 = 62.0;
+/// Height beyond the icon: padding, gap and two label lines.
+const CELL_PAD_H: f32 = 56.0;
+const LABEL_TEXT: f32 = 13.0;
+/// Two lines at the default 1.3 line height.
+const LABEL_H: f32 = 34.0;
+const LABEL_GAP: f32 = 4.0;
+/// Space kept clear on each side of a label, so neighbours never touch.
+const LABEL_MARGIN: f32 = 4.0;
 const SPACING: f32 = 4.0;
 const OUTER_PAD: f32 = 16.0;
 const HEADER_H: f32 = 40.0;
@@ -993,32 +1005,30 @@ impl Grid {
     }
 
     fn cell(&self, i: usize, pos: (usize, usize), cw: f32, ch: f32) -> Element<'_, Msg> {
+        use cosmic::iced::advanced::text::{Ellipsize, EllipsizeHeightLimit};
         let app = &self.apps[i];
         let icon_px = f32::from(self.icon_size);
-        // one line, cut with an ellipsis like the macOS launcher
-        let max_chars = ((cw - 12.0) / 6.6) as usize;
+        // Every label gets the same box: up to two centred lines, cut with an
+        // ellipsis only when the name needs more.
+        let label_w = (cw - 8.0 - 2.0 * LABEL_MARGIN).max(1.0);
         let name = app.name();
-        let truncated = name.chars().count() > max_chars;
-        let label = if truncated {
-            format!(
-                "{}…",
-                name.chars()
-                    .take(max_chars.saturating_sub(1))
-                    .collect::<String>()
-                    .trim_end()
-            )
-        } else {
-            name.to_string()
-        };
+        // more than two lines' worth (word wrapping loses a little)
+        let truncated = text_width(name, LABEL_TEXT) > label_w * 1.8;
         let content = column![
             app.icon
                 .clone()
                 .icon()
                 .width(Length::Fixed(icon_px))
                 .height(Length::Fixed(icon_px)),
-            text(label).size(12).wrapping(text::Wrapping::None),
+            text(name)
+                .size(LABEL_TEXT)
+                .width(Length::Fixed(label_w))
+                .height(Length::Fixed(LABEL_H))
+                .align_x(Alignment::Center)
+                .wrapping(text::Wrapping::WordOrGlyph)
+                .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(2))),
         ]
-        .spacing(6)
+        .spacing(LABEL_GAP)
         .align_x(Alignment::Center);
         let btn = button::custom(container(content).center_x(Length::Fill))
             .selected(self.selected == Some(pos))
@@ -1099,6 +1109,11 @@ fn pill(label: &str) -> container::Container<'_, Msg, cosmic::Theme> {
 
 /// Width of one line of `s` in the theme's font at `size` logical pixels.
 fn text_width(s: &str, size: f32) -> f32 {
+    text_width_in(s, size, cosmic::font::default())
+}
+
+/// Width of one line of `s` in `font` at `size` logical pixels.
+fn text_width_in(s: &str, size: f32, font: cosmic::font::Font) -> f32 {
     use cosmic::iced::Pixels;
     use cosmic::iced::advanced::graphics::text::Paragraph;
     use cosmic::iced::advanced::text::{
@@ -1109,7 +1124,7 @@ fn text_width(s: &str, size: f32) -> f32 {
         bounds: cosmic::iced::Size::INFINITE,
         size: Pixels(size),
         line_height: LineHeight::default(),
-        font: cosmic::font::default(),
+        font,
         align_x: core_text::Alignment::Default,
         align_y: cosmic::iced::alignment::Vertical::Top,
         shaping: Shaping::Advanced,
