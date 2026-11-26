@@ -18,7 +18,7 @@ attach-to-panel = Alfiksi al la panelo
 center-on-screen = Centrigi sur la ekrano
 theme-icon = Panela piktogramo laŭ la piktograma etoso
 original-icon = Originala panela piktogramo
-text-size = Tekstogrando
+font-size = Tipara grando
 clear-recent = Forviŝi lastatempajn aplikaĵojn
 about = Pri Oumuamua
 

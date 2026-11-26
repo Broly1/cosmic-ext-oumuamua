@@ -225,7 +225,7 @@ impl cosmic::Application for Applet {
                     self.grid.apply_config(&self.config);
                 }
                 Some(grid::Event::TextSize(step)) => {
-                    self.config.step_text_scale(self.helper.as_ref(), step);
+                    self.config.step_font_size(self.helper.as_ref(), step);
                     self.grid.apply_config(&self.config);
                 }
                 Some(grid::Event::ClearRecent) => {

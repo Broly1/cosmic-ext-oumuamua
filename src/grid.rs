@@ -220,7 +220,8 @@ pub struct Grid {
     /// Showing the About page instead of the apps.
     about: bool,
     symbolic_icon: bool,
-    /// Text size of the whole menu, 1.0 = normal ([`OumuamuaConfig::text_scale`]).
+    /// Text size of the whole menu, 1.0 = normal: the chosen app-name font
+    /// size over the default ([`OumuamuaConfig::font_size`]).
     text_scale: f32,
     scroll_y: f32,
 }
@@ -260,7 +261,10 @@ impl Grid {
         self.visible_rows = config.rows.clamp(2, 8) as usize;
         self.icon_size = config.icon_size.clamp(32, 128);
         self.symbolic_icon = config.symbolic_icon;
-        let scale = f32::from(config.text_scale.clamp(50, 200)) / 100.0;
+        let size = config
+            .font_size
+            .clamp(crate::config::MIN_FONT_SIZE, crate::config::MAX_FONT_SIZE);
+        let scale = f32::from(size) / f32::from(crate::config::DEFAULT_FONT_SIZE);
         if (scale - self.text_scale).abs() > f32::EPSILON {
             self.text_scale = scale;
             self.chips_w = self.measure_chips();
@@ -706,7 +710,7 @@ impl Grid {
                 .iter()
                 .map(|(_, label, _)| text_width(label, self.sz(MENU_TEXT)))
                 .fold(0.0, f32::max);
-            let size_label = crate::fl!("text-size");
+            let size_label = crate::fl!("font-size");
             let longest = longest.max(self.text_size_row_width(&size_label));
             let width =
                 longest + MENU_ICON + MENU_ICON_GAP + 2.0 * MENU_ITEM_PAD + 2.0 * 4.0 + 12.0;
@@ -1048,20 +1052,20 @@ impl Grid {
 
     /// Width of [`Self::text_size_row`] beyond the menu's icon and padding.
     fn text_size_row_width(&self, label: &str) -> f32 {
-        // label, then −, the widest percentage and +
+        // label, then −, the widest number and +
         text_width(label, self.sz(MENU_TEXT))
-            + text_width("150%", self.sz(MENU_TEXT))
+            + text_width("20", self.sz(MENU_TEXT))
             + 2.0 * 28.0
             + 3.0 * 6.0
             + MENU_ICON_GAP
     }
 
-    /// ⋮ menu row: "Text size   −  100%  +". The buttons leave the menu
-    /// open, so the change can be watched.
+    /// ⋮ menu row: "Font size   −  13  +", like COSMIC Settings' spin
+    /// buttons. The buttons leave the menu open, so the change can be watched.
     fn text_size_row(&self, label: String) -> Element<'_, Msg> {
-        let percent = (self.text_scale * 100.0).round() as u16;
-        let smallest = percent <= crate::config::TEXT_SCALES[0];
-        let largest = percent >= crate::config::TEXT_SCALES[crate::config::TEXT_SCALES.len() - 1];
+        let size = self.sz(LABEL_TEXT) as u16;
+        let smallest = size <= crate::config::MIN_FONT_SIZE;
+        let largest = size >= crate::config::MAX_FONT_SIZE;
         let step = |name: &'static str, msg: Msg, enabled: bool| {
             let b = button::icon(icon::from_name(name).size(16)).padding(6);
             if enabled { b.on_press(msg) } else { b }
@@ -1081,9 +1085,12 @@ impl Grid {
                 .align_y(Alignment::Center)
                 .width(Length::Fill),
                 step("list-remove-symbolic", Msg::TextSize(-1), !smallest),
-                text(format!("{percent}%"))
+                // fixed width, so − and + don't move as the number changes
+                text(size.to_string())
                     .size(self.sz(MENU_TEXT))
-                    .wrapping(text::Wrapping::None),
+                    .wrapping(text::Wrapping::None)
+                    .align_x(Alignment::Center)
+                    .width(Length::Fixed(text_width("20", self.sz(MENU_TEXT)).ceil() + 4.0)),
                 step("list-add-symbolic", Msg::TextSize(1), !largest),
             ]
             .spacing(6)

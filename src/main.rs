@@ -278,7 +278,8 @@ impl cosmic::Application for Oumuamua {
                     self.grid.apply_config(&self.config);
                 }
                 Some(grid::Event::TextSize(step)) => {
-                    self.config.step_text_scale(self.helper.as_ref(), step);
+                    self.config.step_font_size(self.helper.as_ref(), step);
+                    log::debug!("font size step {step}: now {}", self.config.font_size);
                     self.grid.apply_config(&self.config);
                     // the grid changed size: re-centre it
                     if self.state == State::Visible {

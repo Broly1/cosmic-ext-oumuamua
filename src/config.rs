@@ -28,8 +28,9 @@ pub struct OumuamuaConfig {
     /// Rows visible at once (the rest scrolls).
     pub rows: u16,
     pub icon_size: u16,
-    /// Text size of the menu, in percent of the normal size.
-    pub text_scale: u16,
+    /// Font size of the app names, in pixels; every other text in the menu
+    /// follows in proportion.
+    pub font_size: u16,
     /// Use the monochrome (theme-tinted) panel icon instead of the colored one.
     pub symbolic_icon: bool,
     /// Desktop-entry IDs of recently launched apps, most recent first.
@@ -38,8 +39,11 @@ pub struct OumuamuaConfig {
 
 const MAX_RECENT: usize = 24;
 
-/// The text sizes offered in the menu, in percent.
-pub const TEXT_SCALES: [u16; 5] = [85, 100, 115, 130, 150];
+/// The font sizes offered in the menu, like the spin buttons in COSMIC
+/// Settings.
+pub const MIN_FONT_SIZE: u16 = 9;
+pub const MAX_FONT_SIZE: u16 = 20;
+pub const DEFAULT_FONT_SIZE: u16 = 13;
 
 impl Default for OumuamuaConfig {
     fn default() -> Self {
@@ -48,7 +52,7 @@ impl Default for OumuamuaConfig {
             columns: 5,
             rows: 4,
             icon_size: 52,
-            text_scale: 100,
+            font_size: DEFAULT_FONT_SIZE,
             symbolic_icon: false,
             recent: Vec::new(),
         }
@@ -110,24 +114,19 @@ impl OumuamuaConfig {
         self.symbolic_icon = v;
     }
 
-    /// One step larger (`step` > 0) or smaller through [`TEXT_SCALES`].
-    pub fn step_text_scale(&mut self, helper: Option<&cosmic_config::Config>, step: i32) {
-        // the nearest offered size, in case the file holds another value
-        let current = TEXT_SCALES
-            .iter()
-            .enumerate()
-            .min_by_key(|(_, s)| s.abs_diff(self.text_scale))
-            .map_or(1, |(i, _)| i);
-        let next = current
-            .saturating_add_signed(step.signum() as isize)
-            .min(TEXT_SCALES.len() - 1);
-        let v = TEXT_SCALES[next];
+    /// The font size one step larger (`step` > 0) or smaller, kept within
+    /// [`MIN_FONT_SIZE`]..=[`MAX_FONT_SIZE`].
+    pub fn step_font_size(&mut self, helper: Option<&cosmic_config::Config>, step: i32) {
+        let v = self
+            .font_size
+            .saturating_add_signed(step.signum() as i16)
+            .clamp(MIN_FONT_SIZE, MAX_FONT_SIZE);
         if let Some(h) = helper
-            && let Err(e) = self.set_text_scale(h, v)
+            && let Err(e) = self.set_font_size(h, v)
         {
-            log::error!("failed to save text size: {e:?}");
+            log::error!("failed to save font size: {e:?}");
         }
-        self.text_scale = v;
+        self.font_size = v;
     }
 
     pub fn save_position(&mut self, helper: Option<&cosmic_config::Config>, position: Position) {
