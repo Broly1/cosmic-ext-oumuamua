@@ -3,9 +3,11 @@
 //! `cosmic-ext-oumuamua-applet` (panel button / panel popup).
 
 pub mod apps;
+pub mod clipboard;
 pub mod config;
 pub mod grid;
 pub mod i18n;
+pub mod plugins;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 pub const REPOSITORY: &str = env!("CARGO_PKG_REPOSITORY");
@@ -57,7 +59,6 @@ static UNIVERSE_ICONS: std::sync::LazyLock<Vec<(&'static str, Vec<u8>)>> =
 /// follows the icon theme, like the Launcher button beside it: the grey disc
 /// in its accent colour under a Universe theme, and the flat COSMIC-style
 /// icon under any other theme (those use COSMIC's own Launcher art).
-#[must_use]
 pub fn launcher_icon(theme_style: bool) -> cosmic::widget::icon::Handle {
     if !theme_style {
         return cosmic::widget::icon::from_svg_bytes(ICON_COLOR_SVG);

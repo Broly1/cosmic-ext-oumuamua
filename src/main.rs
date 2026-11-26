@@ -257,6 +257,20 @@ impl cosmic::Application for Oumuamua {
                     )
                     .map(move |token| cosmic::Action::App(Message::Launch(app.clone(), token)));
                 }
+                Some(grid::Event::Action(action)) => {
+                    // the clipboard is written while the surface still has
+                    // focus, then the grid closes
+                    if let oumuamua::plugins::Action::Copy(text) = action {
+                        if oumuamua::clipboard::copy(text.clone()) {
+                            return self.hide();
+                        }
+                        // no data-control protocol: libcosmic's clipboard
+                        // only lasts while the grid is open, so stay open
+                        return cosmic::iced::clipboard::write(text);
+                    }
+                    oumuamua::plugins::perform(&action);
+                    return self.hide();
+                }
                 Some(grid::Event::ToggleIcon) => {
                     self.config.toggle_symbolic_icon(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
@@ -410,6 +424,9 @@ impl cosmic::Application for Oumuamua {
                 cosmic::iced::Event::Window(WindowEvent::Opened { size, .. }) => {
                     Some(Message::Opened(size, id))
                 }
+                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::ModifiersChanged(
+                    m,
+                )) => Some(Message::Grid(grid::Msg::AltHeld(m.alt()))),
                 cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed {
                     key,
                     modifiers,
@@ -429,9 +446,14 @@ impl cosmic::Application for Oumuamua {
                         Key::Named(Named::Tab) if modifiers.shift() => {
                             Some(Message::Grid(grid::Msg::Move(-1, 0)))
                         }
-                        Key::Named(Named::Tab) => Some(Message::Grid(grid::Msg::Move(1, 0))),
+                        Key::Named(Named::Tab) => Some(Message::Grid(grid::Msg::Complete)),
                         Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
                         Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
+                        Key::Character(c) if modifiers.alt() => c
+                            .parse::<usize>()
+                            .ok()
+                            .filter(|n| (1..=9).contains(n))
+                            .map(|n| Message::Grid(grid::Msg::Activate(n - 1))),
                         _ => None,
                     }
                 }

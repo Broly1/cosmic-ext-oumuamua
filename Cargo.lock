@@ -1083,15 +1083,21 @@ version = "0.3.0"
 dependencies = [
  "clap",
  "cosmic-launch",
+ "dirs",
  "env_logger",
  "i18n-embed",
  "i18n-embed-fl",
  "libcosmic",
  "log",
+ "mime_guess",
+ "percent-encoding",
  "rust-embed",
  "serde",
  "serde_json",
  "tokio",
+ "walkdir",
+ "wayland-client",
+ "wayland-protocols",
  "xdgen",
 ]
 

@@ -38,6 +38,9 @@ pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     loader
         .load_fallback_language(&Localizations)
         .expect("Error while loading fallback language");
+    // no invisible bidi marks around { $variables }: the theme font may
+    // draw them as boxes in the search results
+    loader.set_use_isolating(false);
 
     loader
 });

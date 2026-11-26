@@ -206,6 +206,18 @@ impl cosmic::Application for Applet {
             Message::Close => return self.close_popup(),
             Message::Grid(msg) => match self.grid.update(msg) {
                 Some(grid::Event::Launch(app)) => return self.launch(app),
+                Some(grid::Event::Action(action)) => {
+                    if let oumuamua::plugins::Action::Copy(text) = action {
+                        if oumuamua::clipboard::copy(text.clone()) {
+                            return self.close_popup();
+                        }
+                        // no data-control protocol: libcosmic's clipboard
+                        // only lasts while the popup is open, so stay open
+                        return cosmic::iced::clipboard::write(text);
+                    }
+                    oumuamua::plugins::perform(&action);
+                    return self.close_popup();
+                }
                 Some(grid::Event::ToggleIcon) => {
                     self.config.toggle_symbolic_icon(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
@@ -288,8 +300,12 @@ impl cosmic::Application for Applet {
         ];
         if self.popup.is_some() {
             subs.push(listen_with(|event, status, _| match event {
+                cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::ModifiersChanged(
+                    m,
+                )) => Some(Message::Grid(grid::Msg::AltHeld(m.alt()))),
                 cosmic::iced::Event::Keyboard(cosmic::iced::keyboard::Event::KeyPressed {
                     key,
+                    modifiers,
                     ..
                 }) => {
                     let ignored = matches!(status, cosmic::iced::event::Status::Ignored);
@@ -303,8 +319,17 @@ impl cosmic::Application for Applet {
                         Key::Named(Named::ArrowRight) if ignored => {
                             Some(Message::Grid(grid::Msg::Move(1, 0)))
                         }
+                        Key::Named(Named::Tab) if modifiers.shift() => {
+                            Some(Message::Grid(grid::Msg::Move(-1, 0)))
+                        }
+                        Key::Named(Named::Tab) => Some(Message::Grid(grid::Msg::Complete)),
                         Key::Named(Named::PageDown) => Some(Message::Grid(grid::Msg::PageDown)),
                         Key::Named(Named::PageUp) => Some(Message::Grid(grid::Msg::PageUp)),
+                        Key::Character(c) if modifiers.alt() => c
+                            .parse::<usize>()
+                            .ok()
+                            .filter(|n| (1..=9).contains(n))
+                            .map(|n| Message::Grid(grid::Msg::Activate(n - 1))),
                         _ => None,
                     }
                 }

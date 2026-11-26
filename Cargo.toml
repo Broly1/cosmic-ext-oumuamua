@@ -24,13 +24,20 @@ xdgen = "0.1"
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
+dirs = "7"
 env_logger = "0.11"
 i18n-embed-fl = "0.10"
 log = "0.4"
+mime_guess = "2"
+percent-encoding = "2"
 rust-embed = "8.11"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["rt", "sync", "process", "time"] }
+walkdir = "2"
+# clipboard that outlives the launcher surface (ext-data-control-v1)
+wayland-client = "0.31"
+wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 
 [dependencies.i18n-embed]
 version = "0.16"

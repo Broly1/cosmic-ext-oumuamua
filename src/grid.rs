@@ -25,6 +25,7 @@ use cosmic::{Element, Task, theme};
 
 use crate::apps::{App, Category};
 use crate::config::{OumuamuaConfig, Position};
+use crate::plugins::{self, Action, Item};
 
 pub static SEARCH_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("oumuamua-search"));
 static SCROLL_ID: LazyLock<widget::Id> = LazyLock::new(|| widget::Id::new("oumuamua-scroll"));
@@ -51,6 +52,10 @@ const MENU_TEXT: f32 = 13.0;
 const MENU_ICON: f32 = 16.0;
 const MENU_ICON_GAP: f32 = 10.0;
 const MENU_ITEM_PAD: f32 = 12.0;
+/// Height of one search result row, its icon, and a section header.
+const RESULT_H: f32 = 52.0;
+const RESULT_ICON: u16 = 36;
+const SECTION_H: f32 = 24.0;
 
 #[derive(Debug, Clone)]
 pub enum Msg {
@@ -58,6 +63,16 @@ pub enum Msg {
     Submit,
     /// Launch `apps[i]`.
     Launch(usize),
+    /// Activate search result row `i` (click, or Alt+1…9).
+    Activate(usize),
+    /// Tab: complete the selected file path, or move on.
+    Complete,
+    /// The ⌫ button: empty the search field.
+    Clear,
+    /// Whether Alt is held (keyboard modifiers changed).
+    AltHeld(bool),
+    /// A background file search finished: (generation, results).
+    Found(u64, Vec<Item>),
     Category(Category),
     Move(i32, i32),
     PageDown,
@@ -92,7 +107,7 @@ impl Power {
         Power::Shutdown,
     ];
 
-    fn icon(self) -> &'static str {
+    pub(crate) fn icon(self) -> &'static str {
         match self {
             Power::Lock => "system-lock-screen-symbolic",
             Power::Suspend => "system-suspend-symbolic",
@@ -102,7 +117,7 @@ impl Power {
         }
     }
 
-    fn label(self) -> String {
+    pub(crate) fn label(self) -> String {
         match self {
             Power::Lock => crate::fl!("lock"),
             Power::Suspend => crate::fl!("suspend"),
@@ -134,6 +149,8 @@ impl Power {
 /// What the owner of the grid needs to do after an update.
 pub enum Event {
     Launch(Arc<App>),
+    /// A plugin result was chosen (copy, open, run, power).
+    Action(Action),
     TogglePosition,
     ClearRecent,
     ToggleIcon,
@@ -142,12 +159,33 @@ pub enum Event {
     Task(Task<Msg>),
 }
 
+/// One row of the search results list.
+#[derive(Debug, Clone, Copy)]
+enum Hit {
+    /// `apps[i]`
+    App(usize),
+    /// `results[i]`
+    Plugin(usize),
+}
+
+// the bools are independent UI flags (menu, About page, icon, Alt key)
+#[allow(clippy::struct_excessive_bools)]
 pub struct Grid {
     apps: Vec<Arc<App>>,
     query: String,
     category: Option<Category>,
     /// Indices into `apps` matching the query and category, best first.
     filtered: Vec<usize>,
+    /// Plugin results, listed after the matching apps while searching.
+    results: Vec<Item>,
+    /// The query used a plugin prefix: only `results` are shown.
+    isolate: bool,
+    /// Alt is held: a digit typed now is an Alt+N shortcut, not text.
+    alt_held: bool,
+    /// Generation of the file search running for the current query, if any.
+    finding: Option<u64>,
+    /// Search term `refilter` found, waiting for [`Grid::find_task`].
+    pending_find: Option<String>,
     /// Indices into `apps` of the recently used apps (one row at most).
     recent: Vec<usize>,
     recent_ids: Vec<String>,
@@ -177,6 +215,11 @@ impl Grid {
             query: String::new(),
             category: None,
             filtered: Vec::new(),
+            results: Vec::new(),
+            isolate: false,
+            alt_held: false,
+            finding: None,
+            pending_find: None,
             recent: Vec::new(),
             recent_ids: Vec::new(),
             categories: Vec::new(),
@@ -214,6 +257,7 @@ impl Grid {
         self.chips_w = self.measure_chips();
         self.query.clear();
         self.category = None;
+        self.finding = None;
         self.menu_open = false;
         self.about = false;
         self.scroll_y = 0.0;
@@ -288,8 +332,57 @@ impl Grid {
         rows
     }
 
-    /// Top of row `r` inside the scrolled content.
+    /// Typing switches the grid to a results list, like Plasma's `AppGrid`:
+    /// the category chips hide and apps and plugin results are listed in
+    /// sections.
+    fn searching(&self) -> bool {
+        !self.query.trim().is_empty()
+    }
+
+    /// Rows of the results list: matching apps, then plugin results.
+    fn hits(&self) -> Vec<Hit> {
+        self.filtered
+            .iter()
+            .map(|&i| Hit::App(i))
+            .chain((0..self.results.len()).map(Hit::Plugin))
+            .collect()
+    }
+
+    /// Height of the scrolling area below the header.
+    fn body_h(&self) -> f32 {
+        if self.searching() {
+            // the chips row is hidden, the list takes its room
+            CHIPS_H + GAP + self.viewport_h()
+        } else {
+            self.viewport_h()
+        }
+    }
+
+    /// Length of every selectable row.
+    fn row_lens(&self) -> Vec<usize> {
+        if self.searching() {
+            vec![1; self.filtered.len() + self.results.len()]
+        } else {
+            self.rows().iter().map(|r| r.len()).collect()
+        }
+    }
+
+    /// Top of selectable row `r` inside the scrolled content.
     fn row_y(&self, r: usize) -> f32 {
+        if self.searching() {
+            let step = RESULT_H + SPACING;
+            let header = SECTION_H + SPACING;
+            let apps = self.filtered.len();
+            let mut y = 0.0;
+            if apps > 0 {
+                y += header;
+            }
+            if r < apps {
+                return y + r as f32 * step;
+            }
+            y += apps as f32 * step + header;
+            return y + (r - apps) as f32 * step;
+        }
         let (_, ch) = self.cell_size();
         let step = ch + SPACING;
         if self.show_recent() && r > 0 {
@@ -299,19 +392,38 @@ impl Grid {
         }
     }
 
+    fn row_h(&self) -> f32 {
+        if self.searching() {
+            RESULT_H
+        } else {
+            self.cell_size().1
+        }
+    }
+
     fn refilter(&mut self) {
+        let found = plugins::search(&self.query);
+        self.results = found.items;
+        self.isolate = found.isolate;
+        self.pending_find = found.find;
         let q = self.query.trim().to_lowercase();
+        if self.isolate {
+            self.filtered.clear();
+            self.selected = (!self.results.is_empty()).then_some((0, 0));
+            return;
+        }
+        // a search looks through every app; the chips filter only the grid
+        let category = if q.is_empty() { self.category } else { None };
         let mut scored: Vec<(u32, usize)> = self
             .apps
             .iter()
             .enumerate()
-            .filter(|(_, a)| self.category.is_none_or(|c| a.category == c))
+            .filter(|(_, a)| category.is_none_or(|c| a.category == c))
             .filter_map(|(i, a)| a.score(&q).map(|s| (s, i)))
             .collect();
         // stable sort keeps A–Z order within the same score
         scored.sort_by_key(|(s, _)| *s);
         self.filtered = scored.into_iter().map(|(_, i)| i).collect();
-        self.selected = if q.is_empty() || self.filtered.is_empty() {
+        self.selected = if q.is_empty() || (self.filtered.is_empty() && self.results.is_empty()) {
             None
         } else {
             Some((0, 0))
@@ -324,34 +436,77 @@ impl Grid {
         self.apps.get(i)
     }
 
-    fn scroll_to(&mut self, y: f32) -> Event {
+    fn scroll_task(&mut self, y: f32) -> Task<Msg> {
         self.scroll_y = y.max(0.0);
-        Event::Task(cosmic::iced::widget::scrollable::scroll_to(
+        cosmic::iced::widget::scrollable::scroll_to(
             SCROLL_ID.clone(),
             AbsoluteOffset {
                 x: None,
                 y: Some(self.scroll_y),
             },
-        ))
+        )
+    }
+
+    fn scroll_to(&mut self, y: f32) -> Event {
+        Event::Task(self.scroll_task(y))
+    }
+
+    /// Replace the search text from code (Tab completion, the `?` list),
+    /// keeping the cursor at the end.
+    fn set_query(&mut self, q: String) -> Event {
+        self.query = q;
+        self.refilter();
+        // focus first: Tab can leave the field unfocused, and typing would
+        // then go nowhere
+        Event::Task(Task::batch([
+            self.scroll_task(0.0),
+            widget::text_input::focus(SEARCH_ID.clone()),
+            widget::text_input::move_cursor_to_end(SEARCH_ID.clone()),
+            self.find_task(),
+        ]))
+    }
+
+    /// Start the file search the query asked for (`find …`), cancelling any
+    /// older one; its results arrive as [`Msg::Found`].
+    fn find_task(&mut self) -> Task<Msg> {
+        let generation = plugins::find::next_generation();
+        let Some(term) = self.pending_find.take() else {
+            self.finding = None;
+            return Task::none();
+        };
+        self.finding = Some(generation);
+        Task::perform(plugins::find::search(term, generation), move |items| {
+            Msg::Found(generation, items.unwrap_or_default())
+        })
+    }
+
+    /// Run results-list row `row`: launch the app or do the plugin action.
+    fn activate(&mut self, row: usize) -> Option<Event> {
+        match *self.hits().get(row)? {
+            Hit::App(i) => self.apps.get(i).map(|a| Event::Launch(a.clone())),
+            Hit::Plugin(i) => match &self.results.get(i)?.action {
+                Action::Fill(q) => Some(self.set_query(q.clone())),
+                action => Some(Event::Action(action.clone())),
+            },
+        }
     }
 
     /// Scroll so the selected row is fully visible.
     fn reveal_selected(&mut self) -> Option<Event> {
         let (r, _) = self.selected?;
-        let (_, ch) = self.cell_size();
         let top = self.row_y(r);
-        let bottom = top + ch;
+        let bottom = top + self.row_h();
         if top < self.scroll_y {
             Some(self.scroll_to(top))
-        } else if bottom > self.scroll_y + self.viewport_h() {
-            Some(self.scroll_to(bottom - self.viewport_h()))
+        } else if bottom > self.scroll_y + self.body_h() {
+            Some(self.scroll_to(bottom - self.body_h()))
         } else {
             None
         }
     }
 
     fn move_selection(&mut self, dx: i32, dy: i32) -> Option<Event> {
-        let lens: Vec<usize> = self.rows().iter().map(|r| r.len()).collect();
+        let lens = self.row_lens();
         if lens.is_empty() {
             return None;
         }
@@ -380,15 +535,53 @@ impl Grid {
     pub fn update(&mut self, msg: Msg) -> Option<Event> {
         match msg {
             Msg::Search(q) => {
+                // The field also receives Alt+1…9 and would type the digit
+                // before the shortcut runs; keep the text as it was. (AltGr
+                // characters such as @ or ² are not ASCII digits.)
+                if self.alt_held
+                    && let Some(added) = q.strip_prefix(self.query.as_str())
+                    && added.len() == 1
+                    && added.chars().all(|c| matches!(c, '1'..='9'))
+                {
+                    return None;
+                }
                 self.query = q;
                 self.refilter();
-                return Some(self.scroll_to(0.0));
+                let find = self.find_task();
+                return Some(Event::Task(Task::batch([self.scroll_task(0.0), find])));
             }
             Msg::Submit => {
                 let sel = self.selected.unwrap_or((0, 0));
+                if self.searching() {
+                    return self.activate(sel.0);
+                }
                 return self.app_at(sel).map(|a| Event::Launch(a.clone()));
             }
             Msg::Launch(i) => return self.apps.get(i).map(|a| Event::Launch(a.clone())),
+            Msg::Activate(row) if self.searching() => return self.activate(row),
+            Msg::Activate(_) => {}
+            Msg::AltHeld(held) => self.alt_held = held,
+            Msg::Found(generation, items) => {
+                // ignore a search the query has moved on from
+                if self.finding == Some(generation) {
+                    self.finding = None;
+                    self.results = items;
+                    self.selected = (!self.results.is_empty()).then_some((0, 0));
+                }
+            }
+            Msg::Complete => {
+                if self.searching() {
+                    let row = self.selected.map_or(0, |(r, _)| r);
+                    if let Some(Hit::Plugin(i)) = self.hits().get(row)
+                        && let Some(path) = self.results[*i].complete.clone()
+                    {
+                        return Some(self.set_query(path));
+                    }
+                    return self.move_selection(0, 1);
+                }
+                return self.move_selection(1, 0);
+            }
+            Msg::Clear => return Some(self.set_query(String::new())),
             Msg::Category(c) => {
                 self.category = if self.category == Some(c) {
                     None
@@ -500,14 +693,32 @@ impl Grid {
                     .class(theme::Container::Dropdown),
             );
         }
-        // the menu sits in the field's trailing slot so it looks part of it
+        // The menu sits in the field's trailing slot so it looks part of it.
+        // While searching, like Plasma's AppGrid, that slot holds a clear
+        // button and the icon of the selected result instead.
+        let trailing: Element<'_, Msg> = if self.searching() {
+            let clear = widget::tooltip(
+                button::icon(icon::from_name("edit-clear-symbolic").size(16))
+                    .padding(6)
+                    .on_press(Msg::Clear),
+                text(crate::fl!("clear-search")),
+                widget::tooltip::Position::Bottom,
+            );
+            let mut slot = row![clear].spacing(6).align_y(Alignment::Center);
+            if let Some(hit) = self.selected.and_then(|(r, _)| self.hits().get(r).copied()) {
+                slot = slot.push(self.hit_icon(hit, 24));
+            }
+            container(slot).padding([0, 6, 0, 2]).into()
+        } else {
+            container(menu).padding([0, 2]).into()
+        };
         let header = row![
             search_input(crate::fl!("search-placeholder"), &self.query)
                 .on_input(Msg::Search)
                 .on_paste(Msg::Search)
                 .on_submit(|_| Msg::Submit)
                 .id(SEARCH_ID.clone())
-                .trailing_icon(container(menu).padding([0, 2]).into())
+                .trailing_icon(trailing)
                 .width(Length::Fill),
         ]
         .align_y(Alignment::Center)
@@ -594,8 +805,15 @@ impl Grid {
         if self.about {
             return self.about_view();
         }
-        let (cw, ch) = self.cell_size();
         let header = self.header();
+        if self.searching() {
+            return column![header, self.search_list()]
+                .spacing(GAP)
+                .padding(OUTER_PAD)
+                .width(Length::Fill)
+                .into();
+        }
+        let (cw, ch) = self.cell_size();
         let chips = self.chips();
 
         // ---- recent row + all apps (scrolling)
@@ -647,6 +865,133 @@ impl Grid {
             .into()
     }
 
+    /// The results list shown while typing, in place of the chips and the
+    /// grid: "Applications (n)" then "Search Plugins (n)", each row with an
+    /// Alt+N shortcut badge for the first nine.
+    fn search_list(&self) -> Element<'_, Msg> {
+        let hits = self.hits();
+        if hits.is_empty() {
+            let dim = dim_color();
+            let empty = column![
+                icon::from_name("system-search-symbolic")
+                    .size(48)
+                    .icon()
+                    .class(theme::Svg::Custom(std::rc::Rc::new(move |_| {
+                        cosmic::iced::widget::svg::Style { color: Some(dim) }
+                    }))),
+                text(if self.finding.is_some() {
+                    crate::fl!("searching")
+                } else {
+                    crate::fl!("no-results-for", query = self.query.trim())
+                })
+                    .size(14)
+                    .class(theme::Text::Color(dim)),
+            ]
+            .spacing(12)
+            .align_x(Alignment::Center);
+            return container(empty)
+                .center_x(Length::Fill)
+                .center_y(Length::Fixed(self.body_h()))
+                .into();
+        }
+
+        let apps = self.filtered.len();
+        let plugins = self.results.len();
+        let mut content: Vec<Element<'_, Msg>> = Vec::with_capacity(hits.len() + 2);
+        for (row, hit) in hits.iter().enumerate() {
+            if row == 0 && apps > 0 {
+                content.push(section_header(crate::fl!("section-apps", count = apps)));
+            }
+            if row == apps && plugins > 0 {
+                content.push(section_header(crate::fl!("section-plugins", count = plugins)));
+            }
+            content.push(self.hit_row(row, *hit));
+        }
+        cosmic::widget::scrollable(
+            column(content)
+                .spacing(SPACING)
+                .padding([0.0, GUTTER, 0.0, 0.0]),
+        )
+        .id(SCROLL_ID.clone())
+        .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
+        .width(Length::Fixed(self.grid_width()))
+        .height(Length::Fixed(self.body_h()))
+        .into()
+    }
+
+    /// Icon of results-list row `row`, at `size` pixels.
+    fn hit_icon(&self, hit: Hit, size: u16) -> Element<'_, Msg> {
+        let px = Length::Fixed(f32::from(size));
+        match hit {
+            Hit::App(i) => self.apps[i].icon.clone().icon().width(px).height(px).into(),
+            Hit::Plugin(i) => {
+                let item = &self.results[i];
+                let mut named = icon::from_name(item.icons[0].as_str()).size(size);
+                if item.icons.len() > 1 {
+                    named.fallback = Some(icon::IconFallback::Names(
+                        item.icons[1..].iter().map(|n| n.clone().into()).collect(),
+                    ));
+                }
+                named.icon().width(px).height(px).into()
+            }
+        }
+    }
+
+    /// One results-list row: Alt+N badge, icon, name, a dimmer second
+    /// line, and for plugin results a pill naming the plugin.
+    fn hit_row(&self, row: usize, hit: Hit) -> Element<'_, Msg> {
+        use cosmic::iced::advanced::text::{Ellipsize, EllipsizeHeightLimit};
+        let one_line = Ellipsize::End(EllipsizeHeightLimit::Lines(1));
+        let (title, subtitle, source): (&str, String, Option<&str>) = match hit {
+            Hit::App(i) => (self.apps[i].name(), self.apps[i].category.label(), None),
+            Hit::Plugin(i) => {
+                let item = &self.results[i];
+                (
+                    item.title.as_str(),
+                    item.subtitle.clone(),
+                    Some(item.source.as_str()),
+                )
+            }
+        };
+
+        let mut content = row![].spacing(12).align_y(Alignment::Center);
+        // the first nine rows answer to Alt+1…9
+        content = content.push(
+            container(if row < 9 {
+                Element::from(badge(format!("Alt+{}", row + 1)))
+            } else {
+                widget::Space::new().into()
+            })
+            .width(Length::Fixed(44.0)),
+        );
+        content = content.push(self.hit_icon(hit, RESULT_ICON));
+        let mut lines = column![text(title).size(14).ellipsize(one_line)]
+            .spacing(2)
+            .width(Length::Fill);
+        if !subtitle.is_empty() {
+            lines = lines.push(
+                text(subtitle)
+                    .size(11)
+                    .ellipsize(one_line)
+                    .class(theme::Text::Color(dim_color())),
+            );
+        }
+        content = content.push(lines);
+        if let Some(source) = source.filter(|s| !s.is_empty()) {
+            content = content.push(pill(source));
+        }
+
+        button::custom(content)
+            .selected(self.selected == Some((row, 0)))
+            // same style as the app cells, so the selection looks the same
+            .class(theme::Button::IconVertical)
+            .padding([6, 10])
+            .width(Length::Fill)
+            .height(Length::Fixed(RESULT_H))
+            .on_press(Msg::Activate(row))
+            .into()
+    }
+
     fn cell(&self, i: usize, pos: (usize, usize), cw: f32, ch: f32) -> Element<'_, Msg> {
         let app = &self.apps[i];
         let icon_px = f32::from(self.icon_size);
@@ -694,6 +1039,62 @@ impl Grid {
             btn.into()
         }
     }
+}
+
+/// The theme's text colour at 70% opacity, for secondary text.
+fn dim_color() -> cosmic::iced::Color {
+    let t = theme::active();
+    let mut c: cosmic::iced::Color = t.cosmic().background(t.transparent).on.into();
+    c.a *= 0.7;
+    c
+}
+
+/// "Applications (3)" with a line running to the right edge.
+fn section_header<'a>(label: String) -> Element<'a, Msg> {
+    row![
+        text(label).size(12).class(theme::Text::Color(dim_color())),
+        divider::horizontal::light(),
+    ]
+    .spacing(10)
+    .align_y(Alignment::Center)
+    .height(Length::Fixed(SECTION_H))
+    .into()
+}
+
+/// A small rounded tag with a faint fill and outline.
+fn tag<'a>(label: String, bold: bool) -> container::Container<'a, Msg, cosmic::Theme> {
+    let mut t = text(label).size(10).class(theme::Text::Color(dim_color()));
+    if bold {
+        t = t.font(cosmic::font::bold());
+    }
+    container(t)
+        .padding([2, 6])
+        .class(theme::Container::custom(|theme| {
+            let c = theme.cosmic();
+            let on: cosmic::iced::Color = c.background(theme.transparent).on.into();
+            container::Style {
+                background: Some(cosmic::iced::Background::Color(cosmic::iced::Color {
+                    a: 0.08,
+                    ..on
+                })),
+                border: cosmic::iced::Border {
+                    color: cosmic::iced::Color { a: 0.2, ..on },
+                    width: 1.0,
+                    radius: c.corner_radii.radius_s.into(),
+                },
+                ..Default::default()
+            }
+        }))
+}
+
+/// Alt+N shortcut badge.
+fn badge<'a>(label: String) -> container::Container<'a, Msg, cosmic::Theme> {
+    tag(label, true)
+}
+
+/// Plugin name pill ("Calculator", "Files"…).
+fn pill(label: &str) -> container::Container<'_, Msg, cosmic::Theme> {
+    tag(label.to_string(), false)
 }
 
 /// Width of one line of `s` in the theme's font at `size` logical pixels.

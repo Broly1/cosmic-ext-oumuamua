@@ -10,7 +10,7 @@ applet-keywords = Applet;Launcher;Applications;Grid;Menu;Start;
 applications = Applications
 
 # Grid
-search-placeholder = Applications
+search-placeholder = Search apps · type ? for more
 no-results = No applications found
 
 # ⋯ menu
@@ -44,3 +44,30 @@ category-social = Social
 category-creativity = Creativity
 category-entertainment = Entertainment
 category-other = Other
+
+# Search plugins
+copy-to-clipboard = Enter to copy
+run-command = Run in the background
+run-in-terminal = Run in terminal
+search-web = Search { $engine } for “{ $query }”
+help-calc = Calculator, e.g. = 2 × (3 + 4)
+help-files = Browse files and folders, Tab completes
+help-find = Find files and folders in your home folder
+help-recent = Recently opened documents
+help-run = Run a command in a terminal (or start with t:)
+help-background = Run a command silently in the background
+help-web = Web search (also g, w, yt, gh)
+
+# Search results list
+section-apps = Applications ({ $count })
+section-plugins = Search Plugins ({ $count })
+no-results-for = No results for “{ $query }”
+searching = Searching…
+clear-search = Clear search
+plugin-calculator = Calculator
+plugin-files = Files
+plugin-find = File search
+plugin-recent = Recent
+plugin-command = Command
+plugin-web = Web search
+plugin-session = Session

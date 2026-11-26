@@ -10,7 +10,7 @@ applet-keywords = Miniaplicativo;Lançador;Aplicativos;Grade;Menu;Iniciar;
 applications = Aplicativos
 
 # Grid
-search-placeholder = Aplicativos
+search-placeholder = Buscar aplicativos · digite ? para mais
 no-results = Nenhum aplicativo encontrado
 
 # ⋯ menu
@@ -44,3 +44,30 @@ category-social = Social
 category-creativity = Criatividade
 category-entertainment = Entretenimento
 category-other = Outros
+
+# Search plugins
+copy-to-clipboard = Enter para copiar
+run-command = Executar em segundo plano
+run-in-terminal = Executar no terminal
+search-web = Buscar “{ $query }” no { $engine }
+help-calc = Calculadora, ex.: = 2 × (3 + 4)
+help-files = Navegar por arquivos e pastas, Tab completa
+help-find = Encontrar arquivos e pastas na sua pasta pessoal
+help-recent = Documentos abertos recentemente
+help-run = Executar um comando no terminal (ou comece com t:)
+help-background = Executar um comando em segundo plano, sem janela
+help-web = Busca na web (também g, w, yt, gh)
+
+# Search results list
+section-apps = Aplicativos ({ $count })
+section-plugins = Plugins de busca ({ $count })
+no-results-for = Nenhum resultado para “{ $query }”
+searching = Buscando…
+clear-search = Limpar busca
+plugin-calculator = Calculadora
+plugin-files = Arquivos
+plugin-find = Busca de arquivos
+plugin-recent = Recentes
+plugin-command = Comando
+plugin-web = Busca na web
+plugin-session = Sessão
