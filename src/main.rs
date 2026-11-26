@@ -277,6 +277,14 @@ impl cosmic::Application for Oumuamua {
                     self.config.toggle_symbolic_icon(self.helper.as_ref());
                     self.grid.apply_config(&self.config);
                 }
+                Some(grid::Event::TextSize(step)) => {
+                    self.config.step_text_scale(self.helper.as_ref(), step);
+                    self.grid.apply_config(&self.config);
+                    // the grid changed size: re-centre it
+                    if self.state == State::Visible {
+                        return set_padding::<()>(SurfaceId::RESERVED, self.padding()).discard();
+                    }
+                }
                 Some(grid::Event::ClearRecent) => {
                     self.config.clear_recent(self.helper.as_ref());
                     self.grid.apply_config(&self.config);

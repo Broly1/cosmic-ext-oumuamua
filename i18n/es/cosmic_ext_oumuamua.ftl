@@ -18,6 +18,7 @@ attach-to-panel = Anclar al panel
 center-on-screen = Centrar en la pantalla
 theme-icon = Icono del panel al estilo del tema de iconos
 original-icon = Icono original en el panel
+text-size = Tamaño del texto
 clear-recent = Borrar aplicaciones recientes
 about = Acerca de Oumuamua
 

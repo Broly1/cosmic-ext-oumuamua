@@ -18,6 +18,7 @@ attach-to-panel = Attach to panel
 center-on-screen = Center on screen
 theme-icon = Panel icon in icon theme style
 original-icon = Original panel icon
+text-size = Text size
 clear-recent = Clear recent apps
 about = About Oumuamua
 

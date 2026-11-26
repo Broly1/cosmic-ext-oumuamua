@@ -95,6 +95,8 @@ pub enum Msg {
     TogglePosition,
     ClearRecent,
     ToggleIcon,
+    /// Text size one step larger (+1) or smaller (-1).
+    TextSize(i32),
     ShowAbout(bool),
     OpenUrl(&'static str),
     Power(Power),
@@ -166,6 +168,8 @@ pub enum Event {
     TogglePosition,
     ClearRecent,
     ToggleIcon,
+    /// Text size one step larger (+1) or smaller (-1); the owner saves it.
+    TextSize(i32),
     OpenUrl(&'static str),
     Power(Power),
     Task(Task<Msg>),
@@ -216,6 +220,8 @@ pub struct Grid {
     /// Showing the About page instead of the apps.
     about: bool,
     symbolic_icon: bool,
+    /// Text size of the whole menu, 1.0 = normal ([`OumuamuaConfig::text_scale`]).
+    text_scale: f32,
     scroll_y: f32,
 }
 
@@ -244,6 +250,7 @@ impl Grid {
             menu_open: false,
             about: false,
             symbolic_icon: false,
+            text_scale: 1.0,
             scroll_y: 0.0,
         }
     }
@@ -253,6 +260,11 @@ impl Grid {
         self.visible_rows = config.rows.clamp(2, 8) as usize;
         self.icon_size = config.icon_size.clamp(32, 128);
         self.symbolic_icon = config.symbolic_icon;
+        let scale = f32::from(config.text_scale.clamp(50, 200)) / 100.0;
+        if (scale - self.text_scale).abs() > f32::EPSILON {
+            self.text_scale = scale;
+            self.chips_w = self.measure_chips();
+        }
         if self.recent_ids != config.recent {
             self.recent_ids.clone_from(&config.recent);
             self.refresh_recent();
@@ -286,12 +298,29 @@ impl Grid {
             .collect();
     }
 
+    /// `px` at the chosen text size.
+    fn sz(&self, px: f32) -> f32 {
+        (px * self.text_scale).round()
+    }
+
+    fn chips_h(&self) -> f32 {
+        self.sz(CHIPS_H)
+    }
+
+    fn result_h(&self) -> f32 {
+        self.sz(RESULT_H)
+    }
+
+    fn section_h(&self) -> f32 {
+        self.sz(SECTION_H)
+    }
+
     /// Logical size of the grid panel, used to size/center the surface.
     #[must_use]
     pub fn panel_size(&self) -> (f32, f32) {
         // the grid already widens its cells to fit all category chips
         let w = 2.0 * OUTER_PAD + self.grid_width();
-        let h = 2.0 * OUTER_PAD + HEADER_H + GAP + CHIPS_H + GAP + self.viewport_h();
+        let h = 2.0 * OUTER_PAD + HEADER_H + GAP + self.chips_h() + GAP + self.viewport_h();
         (w, h)
     }
 
@@ -309,7 +338,7 @@ impl Grid {
             .categories
             .iter()
             // +2: rounding room so the last chip never clips
-            .map(|c| text_width(&c.label(), CHIP_TEXT) + 2.0 * CHIP_PAD + 2.0)
+            .map(|c| text_width(&c.label(), self.sz(CHIP_TEXT)) + 2.0 * CHIP_PAD + 2.0)
             .sum();
         chips + CHIP_SPACING * self.categories.len().saturating_sub(1) as f32
     }
@@ -321,7 +350,9 @@ impl Grid {
         let i = f32::from(self.icon_size);
         let n = self.columns as f32;
         let fit_chips = (self.chips_w - GUTTER + SPACING) / n - SPACING;
-        ((i + CELL_PAD_W).max(fit_chips.ceil()), i + CELL_PAD_H)
+        // like AppGrid, only the text part of the cell grows with the text
+        let w = (i + CELL_PAD_W * self.text_scale).ceil();
+        (w.max(fit_chips.ceil()), i + CELL_PAD_H - LABEL_H + self.sz(LABEL_H))
     }
 
     fn viewport_h(&self) -> f32 {
@@ -364,7 +395,7 @@ impl Grid {
     fn body_h(&self) -> f32 {
         if self.searching() {
             // the chips row is hidden, the list takes its room
-            CHIPS_H + GAP + self.viewport_h()
+            self.chips_h() + GAP + self.viewport_h()
         } else {
             self.viewport_h()
         }
@@ -382,8 +413,8 @@ impl Grid {
     /// Top of selectable row `r` inside the scrolled content.
     fn row_y(&self, r: usize) -> f32 {
         if self.searching() {
-            let step = RESULT_H + SPACING;
-            let header = SECTION_H + SPACING;
+            let step = self.result_h() + SPACING;
+            let header = self.section_h() + SPACING;
             let apps = self.filtered.len();
             let mut y = 0.0;
             if apps > 0 {
@@ -406,7 +437,7 @@ impl Grid {
 
     fn row_h(&self) -> f32 {
         if self.searching() {
-            RESULT_H
+            self.result_h()
         } else {
             self.cell_size().1
         }
@@ -621,6 +652,8 @@ impl Grid {
                 self.menu_open = false;
                 return Some(Event::ToggleIcon);
             }
+            // the menu stays open, so the change can be watched
+            Msg::TextSize(step) => return Some(Event::TextSize(step)),
             Msg::ShowAbout(show) => {
                 self.menu_open = false;
                 self.about = show;
@@ -671,8 +704,10 @@ impl Grid {
             // across the whole full-screen surface
             let longest = entries
                 .iter()
-                .map(|(_, label, _)| text_width(label, MENU_TEXT))
+                .map(|(_, label, _)| text_width(label, self.sz(MENU_TEXT)))
                 .fold(0.0, f32::max);
+            let size_label = crate::fl!("text-size");
+            let longest = longest.max(self.text_size_row_width(&size_label));
             let width =
                 longest + MENU_ICON + MENU_ICON_GAP + 2.0 * MENU_ITEM_PAD + 2.0 * 4.0 + 12.0;
 
@@ -686,7 +721,7 @@ impl Grid {
                     button::custom(
                         row![
                             icon::from_name(icon_name).size(16).icon(),
-                            text(label).size(MENU_TEXT).wrapping(text::Wrapping::None),
+                            text(label).size(self.sz(MENU_TEXT)).wrapping(text::Wrapping::None),
                         ]
                         .spacing(MENU_ICON_GAP)
                         .align_y(Alignment::Center),
@@ -698,6 +733,7 @@ impl Grid {
                     .into(),
                 );
             }
+            items.insert(3, self.text_size_row(size_label));
             menu = menu.popup(
                 container(column(items))
                     .width(Length::Fixed(width.ceil()))
@@ -744,7 +780,7 @@ impl Grid {
             .categories
             .iter()
             .map(|&c| {
-                button::custom(text(c.label()).size(CHIP_TEXT))
+                button::custom(text(c.label()).size(self.sz(CHIP_TEXT)))
                     .class(if self.category == Some(c) {
                         theme::Button::Suggested
                     } else {
@@ -758,7 +794,7 @@ impl Grid {
         // no scrolling: the panel is sized so the chips always fit
         container(row(chips).spacing(CHIP_SPACING))
             .center_x(Length::Fill)
-            .height(Length::Fixed(CHIPS_H))
+            .height(Length::Fixed(self.chips_h()))
             .into()
     }
 
@@ -804,7 +840,7 @@ impl Grid {
         .width(Length::Fill);
         let body = cosmic::widget::scrollable(container(content).center_x(Length::Fill))
             .width(Length::Fill)
-            .height(Length::Fixed(CHIPS_H + GAP + self.viewport_h()));
+            .height(Length::Fixed(self.chips_h() + GAP + self.viewport_h()));
 
         column![header, body]
             .spacing(GAP)
@@ -853,7 +889,7 @@ impl Grid {
             }
         }
         let body: Element<'_, Msg> = if rows.is_empty() {
-            container(text(crate::fl!("no-results")).size(14))
+            container(text(crate::fl!("no-results")).size(self.sz(14.0)))
                 .center_x(Length::Fill)
                 .center_y(Length::Fixed(self.viewport_h()))
                 .into()
@@ -896,7 +932,7 @@ impl Grid {
                 } else {
                     crate::fl!("no-results-for", query = self.query.trim())
                 })
-                    .size(14)
+                    .size(self.sz(14.0))
                     .class(theme::Text::Color(dim)),
             ]
             .spacing(12)
@@ -912,10 +948,16 @@ impl Grid {
         let mut content: Vec<Element<'_, Msg>> = Vec::with_capacity(hits.len() + 2);
         for (row, hit) in hits.iter().enumerate() {
             if row == 0 && apps > 0 {
-                content.push(section_header(crate::fl!("section-apps", count = apps)));
+                content.push(section_header(
+                    crate::fl!("section-apps", count = apps),
+                    self.text_scale,
+                ));
             }
             if row == apps && plugins > 0 {
-                content.push(section_header(crate::fl!("section-plugins", count = plugins)));
+                content.push(section_header(
+                    crate::fl!("section-plugins", count = plugins),
+                    self.text_scale,
+                ));
             }
             content.push(self.hit_row(row, *hit));
         }
@@ -970,27 +1012,27 @@ impl Grid {
         // the first nine rows answer to Alt+1…9
         content = content.push(
             container(if row < 9 {
-                Element::from(badge(format!("Alt+{}", row + 1)))
+                Element::from(badge(format!("Alt+{}", row + 1), self.text_scale))
             } else {
                 widget::Space::new().into()
             })
-            .width(Length::Fixed(44.0)),
+            .width(Length::Fixed(self.sz(44.0))),
         );
         content = content.push(self.hit_icon(hit, RESULT_ICON));
-        let mut lines = column![text(title).size(14).ellipsize(one_line)]
+        let mut lines = column![text(title).size(self.sz(14.0)).ellipsize(one_line)]
             .spacing(2)
             .width(Length::Fill);
         if !subtitle.is_empty() {
             lines = lines.push(
                 text(subtitle)
-                    .size(11)
+                    .size(self.sz(11.0))
                     .ellipsize(one_line)
                     .class(theme::Text::Color(dim_color())),
             );
         }
         content = content.push(lines);
         if let Some(source) = source.filter(|s| !s.is_empty()) {
-            content = content.push(pill(source));
+            content = content.push(pill(source, self.text_scale));
         }
 
         button::custom(content)
@@ -999,9 +1041,56 @@ impl Grid {
             .class(theme::Button::IconVertical)
             .padding([6, 10])
             .width(Length::Fill)
-            .height(Length::Fixed(RESULT_H))
+            .height(Length::Fixed(self.result_h()))
             .on_press(Msg::Activate(row))
             .into()
+    }
+
+    /// Width of [`Self::text_size_row`] beyond the menu's icon and padding.
+    fn text_size_row_width(&self, label: &str) -> f32 {
+        // label, then −, the widest percentage and +
+        text_width(label, self.sz(MENU_TEXT))
+            + text_width("150%", self.sz(MENU_TEXT))
+            + 2.0 * 28.0
+            + 3.0 * 6.0
+            + MENU_ICON_GAP
+    }
+
+    /// ⋮ menu row: "Text size   −  100%  +". The buttons leave the menu
+    /// open, so the change can be watched.
+    fn text_size_row(&self, label: String) -> Element<'_, Msg> {
+        let percent = (self.text_scale * 100.0).round() as u16;
+        let smallest = percent <= crate::config::TEXT_SCALES[0];
+        let largest = percent >= crate::config::TEXT_SCALES[crate::config::TEXT_SCALES.len() - 1];
+        let step = |name: &'static str, msg: Msg, enabled: bool| {
+            let b = button::icon(icon::from_name(name).size(16)).padding(6);
+            if enabled { b.on_press(msg) } else { b }
+        };
+        let mut font_icon = icon::from_name("font-symbolic").size(16);
+        font_icon.fallback = Some(icon::IconFallback::Names(vec!["font-select-symbolic".into()]));
+        container(
+            row![
+                // icon and label spaced like the other menu entries
+                row![
+                    font_icon.icon(),
+                    text(label)
+                        .size(self.sz(MENU_TEXT))
+                        .wrapping(text::Wrapping::None),
+                ]
+                .spacing(MENU_ICON_GAP)
+                .align_y(Alignment::Center)
+                .width(Length::Fill),
+                step("list-remove-symbolic", Msg::TextSize(-1), !smallest),
+                text(format!("{percent}%"))
+                    .size(self.sz(MENU_TEXT))
+                    .wrapping(text::Wrapping::None),
+                step("list-add-symbolic", Msg::TextSize(1), !largest),
+            ]
+            .spacing(6)
+            .align_y(Alignment::Center),
+        )
+        .padding([0.0, 4.0, 0.0, MENU_ITEM_PAD])
+        .into()
     }
 
     fn cell(&self, i: usize, pos: (usize, usize), cw: f32, ch: f32) -> Element<'_, Msg> {
@@ -1013,7 +1102,7 @@ impl Grid {
         let label_w = (cw - 8.0 - 2.0 * LABEL_MARGIN).max(1.0);
         let name = app.name();
         // more than two lines' worth (word wrapping loses a little)
-        let truncated = text_width(name, LABEL_TEXT) > label_w * 1.8;
+        let truncated = text_width(name, self.sz(LABEL_TEXT)) > label_w * 1.8;
         let content = column![
             app.icon
                 .clone()
@@ -1021,9 +1110,9 @@ impl Grid {
                 .width(Length::Fixed(icon_px))
                 .height(Length::Fixed(icon_px)),
             text(name)
-                .size(LABEL_TEXT)
+                .size(self.sz(LABEL_TEXT))
                 .width(Length::Fixed(label_w))
-                .height(Length::Fixed(LABEL_H))
+                .height(Length::Fixed(self.sz(LABEL_H)))
                 .align_x(Alignment::Center)
                 .wrapping(text::Wrapping::WordOrGlyph)
                 .ellipsize(Ellipsize::End(EllipsizeHeightLimit::Lines(2))),
@@ -1060,20 +1149,24 @@ fn dim_color() -> cosmic::iced::Color {
 }
 
 /// "Applications (3)" with a line running to the right edge.
-fn section_header<'a>(label: String) -> Element<'a, Msg> {
+fn section_header<'a>(label: String, scale: f32) -> Element<'a, Msg> {
     row![
-        text(label).size(12).class(theme::Text::Color(dim_color())),
+        text(label)
+            .size((12.0 * scale).round())
+            .class(theme::Text::Color(dim_color())),
         divider::horizontal::light(),
     ]
     .spacing(10)
     .align_y(Alignment::Center)
-    .height(Length::Fixed(SECTION_H))
+    .height(Length::Fixed((SECTION_H * scale).round()))
     .into()
 }
 
 /// A small rounded tag with a faint fill and outline.
-fn tag<'a>(label: String, bold: bool) -> container::Container<'a, Msg, cosmic::Theme> {
-    let mut t = text(label).size(10).class(theme::Text::Color(dim_color()));
+fn tag<'a>(label: String, bold: bool, scale: f32) -> container::Container<'a, Msg, cosmic::Theme> {
+    let mut t = text(label)
+        .size((10.0 * scale).round())
+        .class(theme::Text::Color(dim_color()));
     if bold {
         t = t.font(cosmic::font::bold());
     }
@@ -1098,13 +1191,13 @@ fn tag<'a>(label: String, bold: bool) -> container::Container<'a, Msg, cosmic::T
 }
 
 /// Alt+N shortcut badge.
-fn badge<'a>(label: String) -> container::Container<'a, Msg, cosmic::Theme> {
-    tag(label, true)
+fn badge<'a>(label: String, scale: f32) -> container::Container<'a, Msg, cosmic::Theme> {
+    tag(label, true, scale)
 }
 
 /// Plugin name pill ("Calculator", "Files"…).
-fn pill(label: &str) -> container::Container<'_, Msg, cosmic::Theme> {
-    tag(label.to_string(), false)
+fn pill(label: &str, scale: f32) -> container::Container<'_, Msg, cosmic::Theme> {
+    tag(label.to_string(), false, scale)
 }
 
 /// Width of one line of `s` in the theme's font at `size` logical pixels.
