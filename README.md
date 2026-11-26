@@ -1,5 +1,7 @@
 # Oumuamua for the COSMIC™ desktop
 
+**English** | [Português (Brasil)](README.pt-BR.md)
+
 A frosted-glass application grid launcher for the [COSMIC™](https://system76.com/cosmic) desktop, written in Rust with [libcosmic](https://github.com/pop-os/libcosmic). It's inspired by [Plasma 6 AppGrid](https://github.com/xarbit/plasma6-applet-appgrid).
 
 ![Oumuamua centered on screen with a top panel and dock](screenshots/centered-top-panel.png)
