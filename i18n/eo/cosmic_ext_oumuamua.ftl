@@ -16,8 +16,8 @@ no-results = Neniu aplikaĵo trovita
 # ⋯ menu
 attach-to-panel = Alfiksi al la panelo
 center-on-screen = Centrigi sur la ekrano
-monochrome-icon = Unukolora panela piktogramo
-colored-icon = Kolora panela piktogramo
+theme-icon = Panela piktogramo laŭ la piktograma etoso
+original-icon = Originala panela piktogramo
 clear-recent = Forviŝi lastatempajn aplikaĵojn
 about = Pri Oumuamua
 

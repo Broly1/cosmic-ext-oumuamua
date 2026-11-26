@@ -16,8 +16,8 @@ no-results = No se encontraron aplicaciones
 # ⋯ menu
 attach-to-panel = Anclar al panel
 center-on-screen = Centrar en la pantalla
-monochrome-icon = Icono monocromo en el panel
-colored-icon = Icono a color en el panel
+theme-icon = Icono del panel al estilo del tema de iconos
+original-icon = Icono original en el panel
 clear-recent = Borrar aplicaciones recientes
 about = Acerca de Oumuamua
 

@@ -25,19 +25,55 @@ pub fn open_url(url: &str) {
 /// Colored launcher icon (porthole, planet, rocket).
 pub const ICON_COLOR_SVG: &[u8] =
     include_bytes!("../resources/icons/hicolor/scalable/apps/io.github.broly1.Oumuamua.svg");
-/// Monochrome variant, tinted by the theme like other panel icons.
-pub const ICON_SYMBOLIC_SVG: &[u8] = include_bytes!(
-    "../resources/icons/hicolor/symbolic/apps/io.github.broly1.Oumuamua-symbolic.svg"
-);
+/// Grey-disc variant in the style of the COSMIC "Universe" icon themes (same
+/// disc, outline and accent as their Launcher button). Its blue accent is
+/// swapped for the accent of the Universe variant in use.
+pub const ICON_UNIVERSE_SVG: &str = include_str!("../resources/icons/oumuamua-universe.svg");
+/// Flat variant in the colours of COSMIC's own panel icons (teal, purple,
+/// orange, white), for every other icon theme.
+pub const ICON_COSMIC_SVG: &[u8] = include_bytes!("../resources/icons/oumuamua-cosmic.svg");
 
-pub fn launcher_icon(symbolic: bool) -> cosmic::widget::icon::Handle {
-    if symbolic {
-        let mut h = cosmic::widget::icon::from_svg_bytes(ICON_SYMBOLIC_SVG);
-        h.symbolic = true;
-        h
-    } else {
-        cosmic::widget::icon::from_svg_bytes(ICON_COLOR_SVG)
+/// Accent colour of each Universe icon theme variant, as used in its icons.
+const UNIVERSE_ACCENTS: [(&str, &str); 4] = [
+    ("Blue", "#3479a1"),
+    ("Green", "#626f47"),
+    ("Orange", "#bc5d3d"),
+    ("Red", "#a13434"),
+];
+
+/// The grey-disc icon for each Universe variant, built once.
+static UNIVERSE_ICONS: std::sync::LazyLock<Vec<(&'static str, Vec<u8>)>> =
+    std::sync::LazyLock::new(|| {
+        UNIVERSE_ACCENTS
+            .iter()
+            .map(|(variant, accent)| {
+                let svg = ICON_UNIVERSE_SVG.replace("#3479a1", accent);
+                (*variant, svg.into_bytes())
+            })
+            .collect()
+    });
+
+/// Panel icon. The colored one is the app's own art. The theme-matching one
+/// follows the icon theme, like the Launcher button beside it: the grey disc
+/// in its accent colour under a Universe theme, and the flat COSMIC-style
+/// icon under any other theme (those use COSMIC's own Launcher art).
+#[must_use]
+pub fn launcher_icon(theme_style: bool) -> cosmic::widget::icon::Handle {
+    if !theme_style {
+        return cosmic::widget::icon::from_svg_bytes(ICON_COLOR_SVG);
     }
+    let theme = cosmic::icon_theme::default();
+    if let Some(variant) = theme.strip_prefix("Universe - ") {
+        let icons: &'static [(&str, Vec<u8>)] = &UNIVERSE_ICONS;
+        let bytes = icons
+            .iter()
+            .find(|(v, _)| v.eq_ignore_ascii_case(variant.trim()))
+            .unwrap_or(&icons[0])
+            .1
+            .as_slice();
+        return cosmic::widget::icon::from_svg_bytes(bytes);
+    }
+    cosmic::widget::icon::from_svg_bytes(ICON_COSMIC_SVG)
 }
 
 /// Corner radius of the glass panel, the same one COSMIC uses for system

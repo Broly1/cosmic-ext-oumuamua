@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" fill="none">
+  <!-- COSMIC-style variant: flat porthole in the colours of COSMIC's own
+       panel icons (teal, purple, orange, white). GPL-3.0-only -->
+  <defs>
+    <linearGradient id="sea" x1="40" y1="220" x2="216" y2="44" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#229FAD"/>
+      <stop offset="1" stop-color="#49BAC8"/>
+    </linearGradient>
+    <linearGradient id="planet" x1="250" y1="150" x2="150" y2="250" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#CF7DFF"/>
+      <stop offset="1" stop-color="#BE6DEE"/>
+    </linearGradient>
+    <clipPath id="port"><circle cx="128" cy="134" r="88"/></clipPath>
+  </defs>
+  <circle cx="128" cy="134" r="100" fill="white"/>
+  <circle cx="128" cy="134" r="88" fill="url(#sea)"/>
+  <g clip-path="url(#port)">
+    <circle cx="206" cy="222" r="74" fill="url(#planet)"/>
+    <path d="M150 214 C 158 180 186 156 222 152 C 196 166 176 190 170 222 Z" fill="#E9C9FF"/>
+    <circle cx="70" cy="96" r="5" fill="white" opacity="0.8"/>
+    <circle cx="96" cy="66" r="3.5" fill="white" opacity="0.8"/>
+    <circle cx="60" cy="150" r="3.5" fill="white" opacity="0.8"/>
+  </g>
+  <circle cx="204" cy="56" r="30" fill="#FFAD00"/>
+  <g transform="translate(122 140) rotate(-45) scale(11.5)">
+    <path d="M-3.2 -0.9 L-5.6 0 L-3.2 0.9 Z" fill="#FFAD00"/>
+    <path d="M-1.5 -1.7 L-4.2 -3.6 L-4.2 -0.9 Z M-1.5 1.7 L-4.2 3.6 L-4.2 0.9 Z" fill="#FFAD00"/>
+    <path d="M-3.2 -1.8 L1.1 -1.8 Q4.3 -1 5.3 0 Q4.3 1 1.1 1.8 L-3.2 1.8 Z" fill="white"/>
+    <circle cx="1.2" cy="0" r="1.05" fill="#229FAD" stroke="#BE6DEE" stroke-width="0.4"/>
+  </g>
+</svg>

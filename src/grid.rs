@@ -440,9 +440,9 @@ impl Grid {
                 Position::Panel => ("zoom-fit-best-symbolic", crate::fl!("center-on-screen")),
             };
             let icon_label = if self.symbolic_icon {
-                crate::fl!("colored-icon")
+                crate::fl!("original-icon")
             } else {
-                crate::fl!("monochrome-icon")
+                crate::fl!("theme-icon")
             };
             // every entry has an icon so all labels line up
             let mut entries: Vec<(&'static str, String, Msg)> = vec![
