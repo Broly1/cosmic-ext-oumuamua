@@ -12,6 +12,7 @@ pub mod calc;
 mod files;
 pub mod find;
 mod recent;
+pub mod windows;
 
 use std::process::Command;
 
@@ -41,6 +42,8 @@ pub enum Action {
     Run { cmd: String, terminal: bool },
     /// Replace the search text (the `?` help list).
     Fill(String),
+    /// Bring an open window to the front ([`windows::focus`]).
+    Focus(u64),
     Power(Power),
 }
 
@@ -54,6 +57,19 @@ pub struct Results {
     pub find: Option<String>,
 }
 
+/// `icon` followed by stand-ins for themes that lack it: Pop's Universe
+/// theme has no `system-search` or `system-run`, and its Adwaita fallback
+/// only has symbolic versions.
+fn with_fallbacks(icon: &str) -> Vec<String> {
+    let extra: &[&str] = match icon {
+        "system-search" => &["edit-find", "system-search-symbolic"],
+        "system-run" => &["application-x-executable", "system-run-symbolic"],
+        "document-open-recent" => &["folder-recent", "document-open-recent-symbolic", "text-x-generic"],
+        _ => &[],
+    };
+    std::iter::once(icon).chain(extra.iter().copied()).map(String::from).collect()
+}
+
 impl Item {
     fn new(
         icon: &str,
@@ -63,7 +79,7 @@ impl Item {
         action: Action,
     ) -> Self {
         Self {
-            icons: vec![icon.to_string()],
+            icons: with_fallbacks(icon),
             title: title.into(),
             subtitle: subtitle.into(),
             source,
@@ -172,8 +188,8 @@ pub fn search(query: &str) -> Results {
         }
     }
 
-    // ---- plain text: extras shown above the matching apps
-    let mut items = Vec::new();
+    // ---- plain text: extras listed after the matching apps
+    let mut items = windows::search(q);
     if calc::looks_like_maths(q) {
         items.extend(calc_item(q));
     }
@@ -269,13 +285,7 @@ fn help() -> Vec<Item> {
     ]
     .into_iter()
     .map(|(icon, prefix, desc)| {
-        let mut item = Item::new(icon, prefix.trim_end(), desc, String::new(), Action::Fill(prefix.into()));
-        if icon == "document-open-recent" {
-            // not every icon theme has it
-            item.icons
-                .extend(["folder-recent", "document-open-recent-symbolic", "text-x-generic"].map(String::from));
-        }
-        item
+        Item::new(icon, prefix.trim_end(), desc, String::new(), Action::Fill(prefix.into()))
     })
     .collect()
 }
@@ -286,6 +296,7 @@ pub fn perform(action: &Action) {
         Action::Open(target) => crate::open_url(target),
         Action::Run { cmd, terminal } => run(cmd, *terminal),
         Action::Power(p) => p.run(),
+        Action::Focus(key) => windows::focus(*key),
         Action::Copy(_) | Action::Fill(_) => {}
     }
 }

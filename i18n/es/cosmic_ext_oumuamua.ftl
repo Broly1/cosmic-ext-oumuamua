@@ -71,3 +71,5 @@ plugin-recent = Recientes
 plugin-command = Orden
 plugin-web = Búsqueda web
 plugin-session = Sesión
+plugin-window = Ventana
+switch-to-window = Cambiar a esta ventana

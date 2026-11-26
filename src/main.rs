@@ -227,6 +227,8 @@ impl cosmic::Application for Oumuamua {
     fn init(mut core: Core, args: Args) -> (Self, Task<Message>) {
         core.set_keyboard_nav(false);
         core.set_app_type(cosmic::core::AppType::System);
+        // start watching open windows now, off the UI thread
+        std::thread::spawn(oumuamua::plugins::windows::warm_up);
         let (helper, config) = OumuamuaConfig::load();
         let mut grid = Grid::new(Position::Centered);
         grid.apply_config(&config);

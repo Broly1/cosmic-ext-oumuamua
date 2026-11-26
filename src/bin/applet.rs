@@ -166,6 +166,8 @@ impl cosmic::Application for Applet {
     }
 
     fn init(core: Core, (): ()) -> (Self, Task<Message>) {
+        // start watching open windows now, off the UI thread
+        std::thread::spawn(oumuamua::plugins::windows::warm_up);
         let (helper, config) = OumuamuaConfig::load();
         let mut grid = Grid::new(Position::Panel);
         grid.apply_config(&config);

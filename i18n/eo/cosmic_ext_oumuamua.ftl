@@ -71,3 +71,5 @@ plugin-recent = Lastatempaj
 plugin-command = Komando
 plugin-web = Reta serĉo
 plugin-session = Seanco
+plugin-window = Fenestro
+switch-to-window = Iri al ĉi tiu fenestro
