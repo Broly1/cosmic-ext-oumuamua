@@ -55,9 +55,7 @@ pub fn copy(text: String) -> bool {
 
 /// Bind the protocol and set the selection; the returned queue then serves
 /// paste requests.
-fn own_selection(
-    text: String,
-) -> Result<(EventQueue<State>, State), Box<dyn std::error::Error>> {
+fn own_selection(text: String) -> Result<(EventQueue<State>, State), Box<dyn std::error::Error>> {
     let conn = Connection::connect_to_env()?;
     let (globals, mut queue) = registry_queue_init::<State>(&conn)?;
     let qh = queue.handle();

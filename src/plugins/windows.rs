@@ -89,7 +89,11 @@ pub fn search(query: &str) -> Vec<Item> {
         .filter(|w| w.title.to_lowercase().contains(&q) || w.app_id.to_lowercase().contains(&q))
         .map(|w| Item {
             icons: icon_names(&w.app_id),
-            title: if w.title.is_empty() { w.app_id.clone() } else { w.title.clone() },
+            title: if w.title.is_empty() {
+                w.app_id.clone()
+            } else {
+                w.title.clone()
+            },
             subtitle: crate::fl!("switch-to-window"),
             source: crate::fl!("plugin-window"),
             action: Action::Focus(w.key),

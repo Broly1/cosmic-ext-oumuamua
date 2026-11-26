@@ -356,7 +356,10 @@ impl Grid {
         let fit_chips = (self.chips_w - GUTTER + SPACING) / n - SPACING;
         // like AppGrid, only the text part of the cell grows with the text
         let w = (i + CELL_PAD_W * self.text_scale).ceil();
-        (w.max(fit_chips.ceil()), i + CELL_PAD_H - LABEL_H + self.sz(LABEL_H))
+        (
+            w.max(fit_chips.ceil()),
+            i + CELL_PAD_H - LABEL_H + self.sz(LABEL_H),
+        )
     }
 
     fn viewport_h(&self) -> f32 {
@@ -725,7 +728,9 @@ impl Grid {
                     button::custom(
                         row![
                             icon::from_name(icon_name).size(16).icon(),
-                            text(label).size(self.sz(MENU_TEXT)).wrapping(text::Wrapping::None),
+                            text(label)
+                                .size(self.sz(MENU_TEXT))
+                                .wrapping(text::Wrapping::None),
                         ]
                         .spacing(MENU_ICON_GAP)
                         .align_y(Alignment::Center),
@@ -936,8 +941,8 @@ impl Grid {
                 } else {
                     crate::fl!("no-results-for", query = self.query.trim())
                 })
-                    .size(self.sz(14.0))
-                    .class(theme::Text::Color(dim)),
+                .size(self.sz(14.0))
+                .class(theme::Text::Color(dim)),
             ]
             .spacing(12)
             .align_x(Alignment::Center);
@@ -984,7 +989,11 @@ impl Grid {
             Hit::App(i) => self.apps[i].icon.clone().icon().width(px).height(px).into(),
             Hit::Plugin(i) => {
                 let item = &self.results[i];
-                let mut named = icon::from_name(item.icons[0].as_str()).size(size);
+                let name = item.icons[0].as_str();
+                // drawn in the text colour, so it shows on the dark glass
+                let mut named = icon::from_name(name)
+                    .size(size)
+                    .symbolic(name.ends_with("-symbolic"));
                 if item.icons.len() > 1 {
                     named.fallback = Some(icon::IconFallback::Names(
                         item.icons[1..].iter().map(|n| n.clone().into()).collect(),
@@ -1071,7 +1080,9 @@ impl Grid {
             if enabled { b.on_press(msg) } else { b }
         };
         let mut font_icon = icon::from_name("font-symbolic").size(16);
-        font_icon.fallback = Some(icon::IconFallback::Names(vec!["font-select-symbolic".into()]));
+        font_icon.fallback = Some(icon::IconFallback::Names(vec![
+            "font-select-symbolic".into(),
+        ]));
         container(
             row![
                 // icon and label spaced like the other menu entries
@@ -1090,7 +1101,9 @@ impl Grid {
                     .size(self.sz(MENU_TEXT))
                     .wrapping(text::Wrapping::None)
                     .align_x(Alignment::Center)
-                    .width(Length::Fixed(text_width("20", self.sz(MENU_TEXT)).ceil() + 4.0)),
+                    .width(Length::Fixed(
+                        text_width("20", self.sz(MENU_TEXT)).ceil() + 4.0
+                    )),
                 step("list-add-symbolic", Msg::TextSize(1), !largest),
             ]
             .spacing(6)

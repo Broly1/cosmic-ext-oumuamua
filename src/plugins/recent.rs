@@ -68,7 +68,9 @@ fn attr<'a>(tag: &'a str, name: &str) -> Option<&'a str> {
 /// The local path of a `file://` URL, percent-decoded (`%20` → space).
 fn file_url_path(href: &str) -> Option<String> {
     let encoded = href.strip_prefix("file://")?;
-    let decoded = percent_encoding::percent_decode_str(encoded).decode_utf8().ok()?;
+    let decoded = percent_encoding::percent_decode_str(encoded)
+        .decode_utf8()
+        .ok()?;
     // XML entities that can appear in paths
     Some(
         decoded

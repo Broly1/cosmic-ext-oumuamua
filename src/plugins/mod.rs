@@ -39,7 +39,10 @@ pub enum Action {
     /// Open a file, folder or URL with its default app.
     Open(String),
     /// Run a shell command, in a terminal window or in the background.
-    Run { cmd: String, terminal: bool },
+    Run {
+        cmd: String,
+        terminal: bool,
+    },
     /// Replace the search text (the `?` help list).
     Fill(String),
     /// Bring an open window to the front ([`windows::focus`]).
@@ -58,16 +61,22 @@ pub struct Results {
 }
 
 /// `icon` followed by stand-ins for themes that lack it: Pop's Universe
-/// theme has no `system-search` or `system-run`, and its Adwaita fallback
-/// only has symbolic versions.
+/// theme has no `system-run`, and its Adwaita fallback only has symbolic
+/// versions.
 fn with_fallbacks(icon: &str) -> Vec<String> {
     let extra: &[&str] = match icon {
-        "system-search" => &["edit-find", "system-search-symbolic"],
         "system-run" => &["application-x-executable", "system-run-symbolic"],
-        "document-open-recent" => &["folder-recent", "document-open-recent-symbolic", "text-x-generic"],
+        "document-open-recent" => &[
+            "folder-recent",
+            "document-open-recent-symbolic",
+            "text-x-generic",
+        ],
         _ => &[],
     };
-    std::iter::once(icon).chain(extra.iter().copied()).map(String::from).collect()
+    std::iter::once(icon)
+        .chain(extra.iter().copied())
+        .map(String::from)
+        .collect()
 }
 
 impl Item {
@@ -94,9 +103,21 @@ const ENGINES: [(&str, &str, &str); 7] = [
     ("ddg", "DuckDuckGo", "https://duckduckgo.com/?q="),
     ("g", "Google", "https://www.google.com/search?q="),
     ("google", "Google", "https://www.google.com/search?q="),
-    ("w", "Wikipedia", "https://www.wikipedia.org/search-redirect.php?search="),
-    ("wiki", "Wikipedia", "https://www.wikipedia.org/search-redirect.php?search="),
-    ("yt", "YouTube", "https://www.youtube.com/results?search_query="),
+    (
+        "w",
+        "Wikipedia",
+        "https://www.wikipedia.org/search-redirect.php?search=",
+    ),
+    (
+        "wiki",
+        "Wikipedia",
+        "https://www.wikipedia.org/search-redirect.php?search=",
+    ),
+    (
+        "yt",
+        "YouTube",
+        "https://www.youtube.com/results?search_query=",
+    ),
     ("gh", "GitHub", "https://github.com/search?q="),
 ];
 
@@ -142,7 +163,9 @@ pub fn search(query: &str) -> Results {
         };
     }
     // "recent" alone lists them all
-    if let Some(rest) = strip_word(q, "recent").or_else(|| q.eq_ignore_ascii_case("recent").then_some("")) {
+    if let Some(rest) =
+        strip_word(q, "recent").or_else(|| q.eq_ignore_ascii_case("recent").then_some(""))
+    {
         return Results {
             items: recent::search(rest),
             isolate: true,
@@ -235,7 +258,11 @@ fn run_item(cmd: &str, terminal: bool) -> Option<Item> {
         crate::fl!("run-command")
     };
     Some(Item::new(
-        if terminal { "utilities-terminal" } else { "system-run" },
+        if terminal {
+            "utilities-terminal"
+        } else {
+            "system-run"
+        },
         cmd,
         subtitle,
         crate::fl!("plugin-command"),
@@ -268,7 +295,15 @@ fn session_items(q: &str) -> Vec<Item> {
             p.label().to_lowercase().starts_with(&q)
                 || keywords(p).iter().any(|k| k.starts_with(&q))
         })
-        .map(|p| Item::new(p.icon(), p.label(), "", crate::fl!("plugin-session"), Action::Power(p)))
+        .map(|p| {
+            Item::new(
+                p.icon(),
+                p.label(),
+                "",
+                crate::fl!("plugin-session"),
+                Action::Power(p),
+            )
+        })
         .collect()
 }
 
@@ -277,7 +312,9 @@ fn help() -> Vec<Item> {
     [
         ("accessories-calculator", "= ", crate::fl!("help-calc")),
         ("folder", "~/", crate::fl!("help-files")),
-        ("system-search", "find ", crate::fl!("help-find")),
+        // no COSMIC or Pop theme has a full-colour search icon, and the
+        // lookup would otherwise land on another theme's dark one
+        ("system-search-symbolic", "find ", crate::fl!("help-find")),
         ("document-open-recent", "recent ", crate::fl!("help-recent")),
         ("utilities-terminal", "run ", crate::fl!("help-run")),
         ("system-run", ":", crate::fl!("help-background")),
@@ -285,7 +322,13 @@ fn help() -> Vec<Item> {
     ]
     .into_iter()
     .map(|(icon, prefix, desc)| {
-        Item::new(icon, prefix.trim_end(), desc, String::new(), Action::Fill(prefix.into()))
+        Item::new(
+            icon,
+            prefix.trim_end(),
+            desc,
+            String::new(),
+            Action::Fill(prefix.into()),
+        )
     })
     .collect()
 }
@@ -306,10 +349,17 @@ fn run(cmd: &str, terminal: bool) {
         // keep the window open after the command so its output can be read
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "sh".into());
         let script = format!("{cmd}; exec {shell}");
-        let term = ["cosmic-term", "x-terminal-emulator", "kgx", "gnome-terminal", "konsole", "xterm"]
-            .into_iter()
-            .find(|t| in_path(t))
-            .unwrap_or("xterm");
+        let term = [
+            "cosmic-term",
+            "x-terminal-emulator",
+            "kgx",
+            "gnome-terminal",
+            "konsole",
+            "xterm",
+        ]
+        .into_iter()
+        .find(|t| in_path(t))
+        .unwrap_or("xterm");
         let mut c = Command::new(term);
         if term == "gnome-terminal" {
             c.arg("--");
@@ -366,10 +416,7 @@ fn file_icons(path: &std::path::Path, is_dir: bool) -> Vec<String> {
         "video" => "video-x-generic",
         _ => "text-x-generic",
     };
-    vec![
-        mime.essence_str().replace('/', "-"),
-        generic.to_string(),
-    ]
+    vec![mime.essence_str().replace('/', "-"), generic.to_string()]
 }
 
 #[cfg(test)]

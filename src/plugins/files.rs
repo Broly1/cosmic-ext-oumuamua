@@ -72,7 +72,11 @@ fn expand(query: &str) -> Option<PathBuf> {
     if let Some(rest) = query.strip_prefix('~') {
         let home = dirs::home_dir()?;
         let rest = rest.trim_start_matches('/');
-        return Some(if rest.is_empty() { home } else { home.join(rest) });
+        return Some(if rest.is_empty() {
+            home
+        } else {
+            home.join(rest)
+        });
     }
     query.starts_with('/').then(|| PathBuf::from(query))
 }

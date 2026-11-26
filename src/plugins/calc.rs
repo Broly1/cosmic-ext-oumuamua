@@ -29,9 +29,9 @@ pub fn looks_like_maths(expr: &str) -> bool {
         .is_some_and(|c| c.is_ascii_digit() || matches!(c, '(' | '-' | '.' | '√'));
     starts
         && tokenize(t).is_some_and(|tokens| {
-            tokens.iter().any(|t| {
-                matches!(t, Tok::Op(_) | Tok::Func(_) | Tok::LParen)
-            })
+            tokens
+                .iter()
+                .any(|t| matches!(t, Tok::Op(_) | Tok::Func(_) | Tok::LParen))
         })
 }
 
@@ -60,8 +60,8 @@ enum Tok {
 }
 
 const FUNCS: [&str; 16] = [
-    "sqrt", "cbrt", "abs", "ln", "log2", "log", "exp", "asin", "acos", "atan", "sin", "cos",
-    "tan", "round", "floor", "ceil",
+    "sqrt", "cbrt", "abs", "ln", "log2", "log", "exp", "asin", "acos", "atan", "sin", "cos", "tan",
+    "round", "floor", "ceil",
 ];
 
 fn tokenize(s: &str) -> Option<Vec<Tok>> {
@@ -75,7 +75,9 @@ fn tokenize(s: &str) -> Option<Vec<Tok>> {
             // a comma is a decimal point too (2,5 in pt-BR, es, fr)
             '0'..='9' | '.' | ',' => {
                 let start = i;
-                while i < chars.len() && (chars[i].is_ascii_digit() || matches!(chars[i], '.' | ',')) {
+                while i < chars.len()
+                    && (chars[i].is_ascii_digit() || matches!(chars[i], '.' | ','))
+                {
                     i += 1;
                 }
                 // exponent: 1e3, 2.5E-4
