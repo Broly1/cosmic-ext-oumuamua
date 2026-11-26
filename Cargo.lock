@@ -1079,7 +1079,7 @@ dependencies = [
 
 [[package]]
 name = "cosmic-ext-oumuamua"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "clap",
  "cosmic-launch",
