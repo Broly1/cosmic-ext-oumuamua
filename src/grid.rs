@@ -61,6 +61,10 @@ const CHIP_TEXT: f32 = 12.0;
 const GAP: f32 = 8.0;
 /// Height of the divider between the recent row and all apps.
 const DIVIDER_H: f32 = 17.0;
+/// Padding around the 16 px back arrow at the left of the chips row.
+const BACK_PAD: f32 = 4.0;
+/// Width the back arrow takes, plus a gap before the first chip.
+const BACK_W: f32 = 16.0 + 2.0 * BACK_PAD + CHIP_SPACING;
 /// Room on the right of the grid for the scrollbar.
 const GUTTER: f32 = 14.0;
 /// ⋯ menu text size, icon size, gap between them, and item padding.
@@ -90,6 +94,9 @@ pub enum Msg {
     /// A background file search finished: (generation, results).
     Found(u64, Vec<Item>),
     Category(Category),
+    /// Back arrow or Escape: leave the selected category, or close the
+    /// launcher when there is none.
+    Back,
     Move(i32, i32),
     PageDown,
     PageUp,
@@ -177,6 +184,8 @@ pub enum Event {
     OpenUrl(&'static str),
     Power(Power),
     Task(Task<Msg>),
+    /// Close the launcher (Escape with nothing to go back from).
+    Close,
 }
 
 /// One row of the search results list.
@@ -348,7 +357,9 @@ impl Grid {
             // +2: rounding room so the last chip never clips
             .map(|c| text_width(&c.label(), self.sz(CHIP_TEXT)) + 2.0 * CHIP_PAD + 2.0)
             .sum();
-        chips + CHIP_SPACING * self.categories.len().saturating_sub(1) as f32
+        // room for the back arrow on both sides, so the centered chips
+        // never run under it
+        chips + CHIP_SPACING * self.categories.len().saturating_sub(1) as f32 + 2.0 * BACK_W
     }
 
     /// Size of one app cell. Cells get wider when a language's category
@@ -654,6 +665,14 @@ impl Grid {
                 self.refilter();
                 return Some(self.scroll_to(0.0));
             }
+            Msg::Back => {
+                if self.searching() || self.category.is_none() {
+                    return Some(Event::Close);
+                }
+                self.category = None;
+                self.refilter();
+                return Some(self.scroll_to(0.0));
+            }
             Msg::Move(dx, dy) => return self.move_selection(dx, dy),
             Msg::PageDown => return self.move_selection(0, self.visible_rows as i32),
             Msg::PageUp => return self.move_selection(0, -(self.visible_rows as i32)),
@@ -814,10 +833,23 @@ impl Grid {
             })
             .collect();
         // no scrolling: the panel is sized so the chips always fit
-        container(row(chips).spacing(CHIP_SPACING))
+        let chips = container(row(chips).spacing(CHIP_SPACING))
             .center_x(Length::Fill)
-            .height(Length::Fixed(self.chips_h()))
-            .into()
+            .center_y(Length::Fixed(self.chips_h()));
+        if self.category.is_none() {
+            return chips.into();
+        }
+        // a category is picked: a back arrow at the left end of the row
+        // returns to all apps, layered so the chips stay where they are
+        let back = button::icon(icon::from_name("go-previous-symbolic").size(16))
+            .padding(BACK_PAD)
+            .on_press(Msg::Back);
+        cosmic::iced::widget::stack![
+            chips,
+            container(back).center_y(Length::Fixed(self.chips_h())),
+        ]
+        .width(Length::Fill)
+        .into()
     }
 
     /// About page: shown in place of the chips and apps, at the same size.

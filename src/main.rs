@@ -338,6 +338,7 @@ impl cosmic::Application for Oumuamua {
                     p.run();
                     return self.hide();
                 }
+                Some(grid::Event::Close) => return self.hide(),
                 Some(grid::Event::TogglePosition) => {
                     // the panel applet watches this setting and takes over
                     self.config
@@ -499,7 +500,7 @@ impl cosmic::Application for Oumuamua {
                 }) => {
                     let ignored = matches!(status, cosmic::iced::event::Status::Ignored);
                     match key {
-                        Key::Named(Named::Escape) => Some(Message::Hide),
+                        Key::Named(Named::Escape) => Some(Message::Grid(grid::Msg::Back)),
                         Key::Named(Named::ArrowUp) => Some(Message::Grid(grid::Msg::Move(0, -1))),
                         Key::Named(Named::ArrowDown) => Some(Message::Grid(grid::Msg::Move(0, 1))),
                         Key::Named(Named::ArrowLeft) if ignored => {

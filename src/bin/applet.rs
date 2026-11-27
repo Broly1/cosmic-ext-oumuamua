@@ -45,7 +45,6 @@ enum Message {
     Pressed(Rectangle),
     PopupClosed(Id),
     Grid(grid::Msg),
-    Close,
     Config(OumuamuaConfig),
     Surface(cosmic::surface::Action<Message>),
     Token(TokenUpdate),
@@ -205,7 +204,6 @@ impl cosmic::Application for Applet {
                     self.popup = None;
                 }
             }
-            Message::Close => return self.close_popup(),
             Message::Grid(msg) => match self.grid.update(msg) {
                 Some(grid::Event::Launch(app)) => return self.launch(app),
                 Some(grid::Event::Action(action)) => {
@@ -243,6 +241,7 @@ impl cosmic::Application for Applet {
                     p.run();
                     return self.close_popup();
                 }
+                Some(grid::Event::Close) => return self.close_popup(),
                 Some(grid::Event::TogglePosition) => {
                     self.config
                         .save_position(self.helper.as_ref(), Position::Centered);
@@ -316,7 +315,7 @@ impl cosmic::Application for Applet {
                 }) => {
                     let ignored = matches!(status, cosmic::iced::event::Status::Ignored);
                     match key {
-                        Key::Named(Named::Escape) => Some(Message::Close),
+                        Key::Named(Named::Escape) => Some(Message::Grid(grid::Msg::Back)),
                         Key::Named(Named::ArrowUp) => Some(Message::Grid(grid::Msg::Move(0, -1))),
                         Key::Named(Named::ArrowDown) => Some(Message::Grid(grid::Msg::Move(0, 1))),
                         Key::Named(Named::ArrowLeft) if ignored => {
