@@ -58,6 +58,9 @@ pub struct Results {
     pub isolate: bool,
     /// `find …`: a file search to run in the background ([`find::search`]).
     pub find: Option<String>,
+    /// What to type next, shown instead of "No results" while a plugin
+    /// prefix still waits for input (`=` alone, `find a`, `run `…).
+    pub hint: Option<String>,
 }
 
 /// `icon` followed by stand-ins for themes that lack it: Pop's Universe
@@ -134,16 +137,19 @@ pub fn search(query: &str) -> Results {
             items: help(),
             isolate: true,
             find: None,
+            hint: None,
         };
     }
 
     // ---- prefixed plugins: only their results are shown
     if let Some(expr) = q.strip_prefix('=') {
-        let items = calc_item(expr).into_iter().collect();
+        let item = calc_item(expr);
+        let hint = item.is_none().then(|| crate::fl!("hint-calc"));
         return Results {
-            items,
+            items: item.into_iter().collect(),
             isolate: true,
             find: None,
+            hint,
         };
     }
     if q.starts_with('/') || q.starts_with('~') {
@@ -151,6 +157,7 @@ pub fn search(query: &str) -> Results {
             items: files::list(q),
             isolate: true,
             find: None,
+            hint: None,
         };
     }
     if let Some(term) = strip_word(q, "find") {
@@ -160,6 +167,7 @@ pub fn search(query: &str) -> Results {
             isolate: true,
             // one letter would match nearly everything
             find: (term.chars().count() >= 2).then(|| term.to_string()),
+            hint: (term.chars().count() < 2).then(|| crate::fl!("hint-find")),
         };
     }
     // "recent" alone lists them all
@@ -170,6 +178,7 @@ pub fn search(query: &str) -> Results {
             items: recent::search(rest),
             isolate: true,
             find: None,
+            hint: None,
         };
     }
     // "run cmd" and "t:cmd" open a terminal so the output can be read;
@@ -179,6 +188,7 @@ pub fn search(query: &str) -> Results {
             items: run_item(cmd, true).into_iter().collect(),
             isolate: true,
             find: None,
+            hint: cmd.trim().is_empty().then(|| crate::fl!("hint-run")),
         };
     }
     if let Some(cmd) = q.strip_prefix(':') {
@@ -186,6 +196,7 @@ pub fn search(query: &str) -> Results {
             items: run_item(cmd, false).into_iter().collect(),
             isolate: true,
             find: None,
+            hint: cmd.trim().is_empty().then(|| crate::fl!("hint-background")),
         };
     }
     for (prefix, name, url) in ENGINES {
@@ -207,6 +218,9 @@ pub fn search(query: &str) -> Results {
                 items,
                 isolate: true,
                 find: None,
+                hint: terms
+                    .is_empty()
+                    .then(|| crate::fl!("hint-web", engine = name)),
             };
         }
     }
@@ -221,6 +235,7 @@ pub fn search(query: &str) -> Results {
         items,
         isolate: false,
         find: None,
+        hint: None,
     }
 }
 
@@ -456,6 +471,26 @@ mod tests {
         match &r.items[0].action {
             Action::Open(u) => assert_eq!(u, "https://duckduckgo.com/?q=a%26b%20c"),
             a => panic!("{a:?}"),
+        }
+    }
+
+    fn hinted(q: &str) -> bool {
+        search(q).hint.is_some()
+    }
+
+    #[test]
+    fn hints_while_a_prefix_waits_for_input() {
+        // nothing typed after the prefix yet, or not enough to act on
+        for q in [
+            "=", "= ", "= 2+", "find ", "find a", "run ", "t:", ":", "ddg ", "g ",
+        ] {
+            assert!(hinted(q), "{q:?} should show a hint");
+        }
+        // enough to act on, or a real search that may find nothing
+        for q in [
+            "= 2+2", "find ab", "run ls", "t:ls", ":ls", "ddg rust", "firefox",
+        ] {
+            assert!(!hinted(q), "{q:?} should not show a hint");
         }
     }
 }

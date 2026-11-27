@@ -215,6 +215,8 @@ pub struct Grid {
     finding: Option<u64>,
     /// Search term `refilter` found, waiting for [`Grid::find_task`].
     pending_find: Option<String>,
+    /// What to type next while a plugin prefix waits for input.
+    hint: Option<String>,
     /// Indices into `apps` of the recently used apps (one row at most).
     recent: Vec<usize>,
     recent_ids: Vec<String>,
@@ -252,6 +254,7 @@ impl Grid {
             alt_held: false,
             finding: None,
             pending_find: None,
+            hint: None,
             recent: Vec::new(),
             recent_ids: Vec::new(),
             categories: Vec::new(),
@@ -479,6 +482,7 @@ impl Grid {
         self.results = found.items;
         self.isolate = found.isolate;
         self.pending_find = found.find;
+        self.hint = found.hint;
         let q = self.query.trim().to_lowercase();
         if self.isolate {
             self.filtered.clear();
@@ -989,6 +993,8 @@ impl Grid {
                     }))),
                 text(if self.finding.is_some() {
                     crate::fl!("searching")
+                } else if let Some(hint) = &self.hint {
+                    hint.clone()
                 } else {
                     crate::fl!("no-results-for", query = self.query.trim())
                 })
