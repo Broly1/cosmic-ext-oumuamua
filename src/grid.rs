@@ -19,7 +19,7 @@ use std::sync::{Arc, LazyLock};
 
 use cosmic::iced::widget::scrollable::AbsoluteOffset;
 use cosmic::iced::widget::{column, row, text};
-use cosmic::iced::{Alignment, Length};
+use cosmic::iced::{Alignment, Length, Padding};
 use cosmic::widget::{self, button, container, divider, icon, popover, search_input};
 use cosmic::{Element, Task, theme};
 
@@ -47,6 +47,10 @@ const LABEL_GAP: f32 = 4.0;
 const LABEL_MARGIN: f32 = 4.0;
 const SPACING: f32 = 4.0;
 const OUTER_PAD: f32 = 16.0;
+/// How far the scrolling area runs into the bottom margin, so scrolled
+/// content keeps going to the panel edge instead of cutting off at the
+/// margin. One pixel short, to leave the panel's border clear.
+const BLEED: f32 = OUTER_PAD - 1.0;
 const HEADER_H: f32 = 40.0;
 const CHIPS_H: f32 = 28.0;
 const CHIP_SPACING: f32 = 6.0;
@@ -365,6 +369,15 @@ impl Grid {
     fn viewport_h(&self) -> f32 {
         let (_, ch) = self.cell_size();
         self.visible_rows as f32 * (ch + SPACING) - SPACING
+    }
+
+    /// Outer padding of a page whose scrolling area bleeds into the bottom
+    /// margin (see [`BLEED`]).
+    fn bleed_pad() -> Padding {
+        Padding {
+            bottom: OUTER_PAD - BLEED,
+            ..Padding::new(OUTER_PAD)
+        }
     }
 
     fn show_recent(&self) -> bool {
@@ -847,13 +860,19 @@ impl Grid {
         .spacing(10)
         .align_x(Alignment::Center)
         .width(Length::Fill);
-        let body = cosmic::widget::scrollable(container(content).center_x(Length::Fill))
-            .width(Length::Fill)
-            .height(Length::Fixed(self.chips_h() + GAP + self.viewport_h()));
+        let body = cosmic::widget::scrollable(
+            container(content)
+                .center_x(Length::Fill)
+                .padding(Padding::ZERO.bottom(BLEED)),
+        )
+        .width(Length::Fill)
+        .height(Length::Fixed(
+            self.chips_h() + GAP + self.viewport_h() + BLEED,
+        ));
 
         column![header, body]
             .spacing(GAP)
-            .padding(OUTER_PAD)
+            .padding(Self::bleed_pad())
             .width(Length::Fill)
             .into()
     }
@@ -866,7 +885,7 @@ impl Grid {
         if self.searching() {
             return column![header, self.search_list()]
                 .spacing(GAP)
-                .padding(OUTER_PAD)
+                .padding(Self::bleed_pad())
                 .width(Length::Fill)
                 .into();
         }
@@ -906,18 +925,18 @@ impl Grid {
             let grid = cosmic::widget::scrollable(
                 column(content)
                     .spacing(SPACING)
-                    .padding([0.0, GUTTER, 0.0, 0.0]),
+                    .padding(Padding::ZERO.right(GUTTER).bottom(BLEED)),
             )
             .id(SCROLL_ID.clone())
             .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
             .width(Length::Fixed(self.grid_width()))
-            .height(Length::Fixed(self.viewport_h()));
+            .height(Length::Fixed(self.viewport_h() + BLEED));
             grid.into()
         };
 
         column![header, chips, body]
             .spacing(GAP)
-            .padding(OUTER_PAD)
+            .padding(Self::bleed_pad())
             .width(Length::Fill)
             .into()
     }
@@ -973,12 +992,12 @@ impl Grid {
         cosmic::widget::scrollable(
             column(content)
                 .spacing(SPACING)
-                .padding([0.0, GUTTER, 0.0, 0.0]),
+                .padding(Padding::ZERO.right(GUTTER).bottom(BLEED)),
         )
         .id(SCROLL_ID.clone())
         .on_scroll(|v| Msg::Scrolled(v.absolute_offset().y))
         .width(Length::Fixed(self.grid_width()))
-        .height(Length::Fixed(self.body_h()))
+        .height(Length::Fixed(self.body_h() + BLEED))
         .into()
     }
 
