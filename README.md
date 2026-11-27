@@ -20,7 +20,7 @@ This is a community project. It is not affiliated with or endorsed by System76.
 
 - **Always centered.** By default the grid opens in the exact middle of the screen, wherever the panel or dock is.
 - **Or attached to the panel.** The ⋮ menu in the search field turns it into a popup attached to its panel button, like a Start menu, and back again. With the button at the left of a bottom panel, it opens like the Windows 7 Start menu.
-- **AppGrid-style layout.** A search field, category chips (Productivity & Finance, Utilities, Social, Creativity, Entertainment, Other), a row of recently used apps, and a scrolling grid of all apps. App names wrap onto two lines like Plasma's AppGrid, and a tooltip shows the full name when it's cut short.
+- **AppGrid-style layout.** A search field, category chips (Productivity & Finance, Utilities, Social, Creativity, Entertainment, Other), a row of recently used apps, and a scrolling grid of all apps. App names wrap onto two lines like Plasma's AppGrid.
 - **One search field for everything.** Typing searches your apps and open windows. Prefixes turn the field into other tools; type `?` to list them:
 
   | Type | What it does |

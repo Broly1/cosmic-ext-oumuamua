@@ -1172,8 +1172,6 @@ impl Grid {
         // ellipsis only when the name needs more.
         let label_w = (cw - 8.0 - 2.0 * LABEL_MARGIN).max(1.0);
         let name = app.name();
-        // more than two lines' worth (word wrapping loses a little)
-        let truncated = text_width(name, self.sz(LABEL_TEXT)) > label_w * 1.8;
         let content = column![
             app.icon
                 .clone()
@@ -1190,24 +1188,15 @@ impl Grid {
         ]
         .spacing(LABEL_GAP)
         .align_x(Alignment::Center);
-        let btn = button::custom(container(content).center_x(Length::Fill))
+        // no tooltip with the name: the label already shows it
+        button::custom(container(content).center_x(Length::Fill))
             .selected(self.selected == Some(pos))
             .class(theme::Button::IconVertical)
             .width(Length::Fixed(cw))
             .height(Length::Fixed(ch))
             .padding([8, 4])
-            .on_press(Msg::Launch(i));
-        if truncated {
-            // full name on hover when the label is cut
-            widget::tooltip(
-                btn,
-                text(name.to_string()),
-                widget::tooltip::Position::Bottom,
-            )
+            .on_press(Msg::Launch(i))
             .into()
-        } else {
-            btn.into()
-        }
     }
 }
 

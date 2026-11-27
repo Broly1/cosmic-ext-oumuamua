@@ -20,7 +20,7 @@ Este é um projeto da comunidade. Ele não é afiliado nem endossado pela System
 
 - **Sempre centralizado.** Por padrão, a grade abre bem no meio da tela, não importa onde estejam o painel ou a dock.
 - **Ou preso ao painel.** O menu ⋮ no campo de busca transforma a grade em um popup preso ao botão do painel, como um menu Iniciar, e de volta. Com o botão à esquerda de um painel inferior, ela abre como o menu Iniciar do Windows 7.
-- **Layout no estilo do AppGrid.** Um campo de busca, categorias (Produtividade e finanças, Utilitários, Social, Criatividade, Entretenimento, Outros), uma linha com os aplicativos usados recentemente e uma grade rolável com todos os aplicativos. Os nomes dos aplicativos ocupam até duas linhas, como no AppGrid do Plasma, e uma dica mostra o nome completo quando ele é cortado.
+- **Layout no estilo do AppGrid.** Um campo de busca, categorias (Produtividade e finanças, Utilitários, Social, Criatividade, Entretenimento, Outros), uma linha com os aplicativos usados recentemente e uma grade rolável com todos os aplicativos. Os nomes dos aplicativos ocupam até duas linhas, como no AppGrid do Plasma.
 - **Um campo de busca para tudo.** Digitar busca seus aplicativos e janelas abertas. Prefixos transformam o campo em outras ferramentas; digite `?` para ver todos:
 
   | Digite | O que faz |
